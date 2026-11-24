@@ -9,28 +9,60 @@
     <h1 id="login-title" class="m-0 text-3xl font-bold tracking-tight text-color">Bienvenido</h1>
     <p class="mb-7 mt-2 text-color-secondary">Ingresa tus datos para continuar al panel.</p>
 
-    <form class="grid gap-3" [formGroup]="loginForm" (ngSubmit)="login()" novalidate>
+    <form class="grid gap-3" (submit)="onSubmit($event)" novalidate>
       <label for="username" class="mt-1 text-sm font-semibold text-color">Usuario</label>
       <input
         id="username"
-        name="username"
         type="text"
-        formControlName="username"
+        [formField]="loginForm.username"
+        [attr.aria-invalid]="
+          loginForm.username().touched() && loginForm.username().invalid()
+            ? 'true'
+            : null
+        "
+        [attr.aria-describedby]="
+          loginForm.username().touched() && loginForm.username().invalid()
+            ? 'username-error'
+            : null
+        "
         autocomplete="username"
         placeholder="Tu usuario"
         class="min-h-12 w-full rounded-lg border border-surface-300 bg-surface-0 px-3 text-color outline-none placeholder:text-muted-color autofill:bg-surface-0 autofill:text-color focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800 dark:autofill:bg-surface-800"
       />
+      @if (loginForm.username().touched() && loginForm.username().invalid()) {
+        @for (error of loginForm.username().errors(); track error.kind) {
+          <p id="username-error" class="text-sm text-red-600 dark:text-red-400" role="alert">
+            {{ error.message }}
+          </p>
+        }
+      }
 
       <label for="password" class="mt-1 text-sm font-semibold text-color">Contraseña</label>
       <input
         id="password"
-        name="password"
         type="password"
-        formControlName="password"
+        [formField]="loginForm.password"
+        [attr.aria-invalid]="
+          loginForm.password().touched() && loginForm.password().invalid()
+            ? 'true'
+            : null
+        "
+        [attr.aria-describedby]="
+          loginForm.password().touched() && loginForm.password().invalid()
+            ? 'password-error'
+            : null
+        "
         autocomplete="current-password"
         placeholder="Tu contraseña"
         class="min-h-12 w-full rounded-lg border border-surface-300 bg-surface-0 px-3 text-color outline-none placeholder:text-muted-color autofill:bg-surface-0 autofill:text-color focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800 dark:autofill:bg-surface-800"
       />
+      @if (loginForm.password().touched() && loginForm.password().invalid()) {
+        @for (error of loginForm.password().errors(); track error.kind) {
+          <p id="password-error" class="text-sm text-red-600 dark:text-red-400" role="alert">
+            {{ error.message }}
+          </p>
+        }
+      }
 
       <button
         class="mt-3 min-h-12 rounded-lg bg-primary px-4 font-semibold text-primary-contrast transition-colors hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-70"
