@@ -44,16 +44,19 @@
               <p-sidebar-menu>
                 @for (item of menuItems; track item.label) {
                   <p-sidebar-menu-item>
-                    <button
+                    <a
                       pSidebarMenuButton
-                      type="button"
-                      [isActive]="activeItem() === item"
-                      [attr.aria-current]="activeItem() === item ? 'page' : null"
-                      (click)="selectMenuItem(item)"
+                      [routerLink]="item.path"
+                      routerLinkActive
+                      #activeLink="routerLinkActive"
+                      [routerLinkActiveOptions]="{ exact: true }"
+                      [isActive]="activeLink.isActive"
+                      [attr.aria-current]="activeLink.isActive ? 'page' : null"
+                      (click)="closeNavigationOnMobile()"
                     >
                       <ng-container [ngComponentOutlet]="item.icon" />
                       <span>{{ item.label }}</span>
-                    </button>
+                    </a>
                   </p-sidebar-menu-item>
                 }
               </p-sidebar-menu>
@@ -78,12 +81,13 @@
         <svg data-p-icon="sidebar"></svg>
       </button>
       <span class="flex-1 text-sm font-semibold">{{ activeItem().label }}</span>
+      
       <span
         class="grid size-8 place-items-center rounded-full bg-primary-50 text-sm font-semibold text-primary-700 dark:bg-primary-900 dark:text-primary-100"
         aria-label="Usuario"
       >U</span>
     </header>
 
-    <ng-container [ngComponentOutlet]="activeItem().component" />
+    <router-outlet (activate)="updateActiveItem()" />
   </p-sidebar-main>
 </p-sidebar-layout>

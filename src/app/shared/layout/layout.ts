@@ -1,29 +1,38 @@
 import { NgComponentOutlet } from '@angular/common';
-import { Component, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import type { Type } from '@angular/core';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { SidebarModule } from 'primeng/sidebar';
 import { Comment } from '@primeicons/angular/comment';
 import { Home } from '@primeicons/angular/home';
 import { Sidebar as SidebarIcon } from '@primeicons/angular/sidebar';
-import { Resumen } from '../../features/resumen/pages/resumen/resumen';
-import { Sesiones } from '../../features/sesiones/pages/sesiones/sesiones';
 
-type DashboardMenuItem = {
+type NavigationMenuItem = {
   label: string;
+  path: string;
   icon: Type<unknown>;
-  component: Type<unknown>;
 };
 
 @Component({
-  imports: [NgComponentOutlet, SidebarModule, ButtonModule, Comment, Home, SidebarIcon],
+  imports: [
+    NgComponentOutlet,
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
+    SidebarModule,
+    ButtonModule,
+    SidebarIcon,
+  ],
   selector: 'app-layout',
   templateUrl: './layout.html',
 })
 export class Layout implements OnInit, OnDestroy {
-  readonly menuItems: DashboardMenuItem[] = [
-    { label: 'Resumen', icon: Home, component: Resumen },
-    { label: 'Sesiones', icon: Comment, component: Sesiones },
+  private readonly router = inject(Router);
+
+  readonly menuItems: NavigationMenuItem[] = [
+    { label: 'Resumen', path: '/dashboard', icon: Home },
+    { label: 'Sesiones', path: '/sesiones', icon: Comment },
   ];
   readonly activeItem = signal(this.menuItems[0]);
   readonly isMobile = signal(false);
@@ -47,10 +56,24 @@ export class Layout implements OnInit, OnDestroy {
     this.mediaQuery.addEventListener('change', this.mediaQueryListener);
   }
 
-  selectMenuItem(item: DashboardMenuItem): void {
-    this.activeItem.set(item);
+  closeNavigationOnMobile(): void {
     if (this.isMobile()) {
       this.navOpen.set(false);
+    }
+  }
+
+  updateActiveItem(): void {
+    const activeItem = this.menuItems.find((item) =>
+      this.router.isActive(item.path, {
+        paths: 'exact',
+        queryParams: 'ignored',
+        matrixParams: 'ignored',
+        fragment: 'ignored',
+      }),
+    );
+
+    if (activeItem) {
+      this.activeItem.set(activeItem);
     }
   }
 
