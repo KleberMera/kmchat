@@ -1,0 +1,152 @@
+<p-sidebar-layout class="min-h-screen bg-surface-50 text-color dark:bg-surface-950">
+  @if (isMobile() && navOpen()) {
+    <p-sidebar-backdrop />
+  }
+
+  <p-sidebar
+    id="main-navigation"
+    side="left"
+    [collapsible]="isMobile() ? 'offcanvas' : 'icon'"
+    [overlay]="isMobile()"
+    [(open)]="navOpen"
+    width="15rem"
+  >
+    <p-sidebar-spacer />
+    <p-sidebar-aside>
+      <p-sidebar-panel>
+        <p-sidebar-header>
+          <p-sidebar-menu>
+            <p-sidebar-menu-item>
+              <button pSidebarMenuButton class="p-3!">
+                <span
+                  class="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-contrast font-bold"
+                  aria-hidden="true"
+                >K</span>
+                <span class="text-base font-bold">KMChat</span>
+              </button>
+            </p-sidebar-menu-item>
+          </p-sidebar-menu>
+        </p-sidebar-header>
+        <p-sidebar-content>
+          <p-sidebar-group>
+            <p-sidebar-group-label>MENÚ</p-sidebar-group-label>
+            <p-sidebar-group-content>
+              <p-sidebar-menu>
+                <p-sidebar-menu-item>
+                  <button pSidebarMenuButton [isActive]="true">
+                    <svg data-p-icon="home"></svg>
+                    <span>Resumen</span>
+                  </button>
+                </p-sidebar-menu-item>
+                <p-sidebar-menu-item>
+                  <button pSidebarMenuButton>
+                    <svg data-p-icon="inbox"></svg>
+                    <span>Conversaciones</span>
+                  </button>
+                </p-sidebar-menu-item>
+                <p-sidebar-menu-item>
+                  <button pSidebarMenuButton>
+                    <svg data-p-icon="users"></svg>
+                    <span>Contactos</span>
+                  </button>
+                </p-sidebar-menu-item>
+                <p-sidebar-menu-item>
+                  <button pSidebarMenuButton>
+                    <svg data-p-icon="calendar"></svg>
+                    <span>Actividad</span>
+                  </button>
+                </p-sidebar-menu-item>
+              </p-sidebar-menu>
+            </p-sidebar-group-content>
+          </p-sidebar-group>
+        </p-sidebar-content>
+        <p-sidebar-footer>
+          <p-sidebar-menu>
+            <p-sidebar-menu-item>
+              <button pSidebarMenuButton>
+                <svg data-p-icon="cog"></svg>
+                <span>Configuración</span>
+              </button>
+            </p-sidebar-menu-item>
+          </p-sidebar-menu>
+        </p-sidebar-footer>
+      </p-sidebar-panel>
+    </p-sidebar-aside>
+  </p-sidebar>
+
+  <p-sidebar-main>
+    <header class="flex h-16 items-center gap-3 border-b border-surface-200 bg-surface-0 px-4 sm:px-6 dark:border-surface-800 dark:bg-surface-900">
+      <button
+        pButton
+        pSidebarTrigger
+        target="main-navigation"
+        severity="secondary"
+        text
+        size="small"
+        aria-label="Mostrar u ocultar menú"
+      >
+        <svg data-p-icon="sidebar"></svg>
+      </button>
+      <span class="flex-1 text-sm font-semibold">Panel de control</span>
+      <span
+        class="grid size-8 place-items-center rounded-full bg-primary-50 text-sm font-semibold text-primary-700 dark:bg-primary-900 dark:text-primary-100"
+        aria-label="Usuario"
+      >U</span>
+    </header>
+
+    <main class="mx-auto grid w-full max-w-7xl gap-6 p-4 sm:p-6 lg:p-9">
+      <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <p class="mb-1 text-xs font-bold tracking-[0.12em] text-primary-700 dark:text-primary-300">PANEL PRINCIPAL</p>
+          <h1 class="m-0 text-3xl font-bold tracking-tight">Resumen</h1>
+          <p class="mb-0 mt-2 text-sm text-color-secondary">Bienvenido a tu espacio de trabajo.</p>
+        </div>
+        <span class="rounded-lg border border-surface-200 bg-surface-0 px-3 py-2 text-sm text-color-secondary dark:border-surface-700 dark:bg-surface-900">
+          Vista general
+        </span>
+      </div>
+
+      <section class="grid grid-cols-1 gap-4 md:grid-cols-3" aria-label="Métricas">
+        <article class="relative grid gap-2 rounded-xl border border-surface-200 bg-surface-0 p-5 shadow-sm dark:border-surface-800 dark:bg-surface-900">
+          <span class="text-sm text-color-secondary">Conversaciones</span>
+          <strong class="text-3xl tracking-tight">128</strong>
+          <span class="text-xs text-color-secondary">Total registrado</span>
+          <span class="absolute right-5 top-5 grid size-9 place-items-center rounded-lg bg-primary-50 text-primary-700 dark:bg-primary-900 dark:text-primary-200" aria-hidden="true">
+            <svg data-p-icon="inbox"></svg>
+          </span>
+        </article>
+        <article class="relative grid gap-2 rounded-xl border border-surface-200 bg-surface-0 p-5 shadow-sm dark:border-surface-800 dark:bg-surface-900">
+          <span class="text-sm text-color-secondary">Contactos</span>
+          <strong class="text-3xl tracking-tight">64</strong>
+          <span class="text-xs text-color-secondary">En tu agenda</span>
+          <span class="absolute right-5 top-5 grid size-9 place-items-center rounded-lg bg-primary-50 text-primary-700 dark:bg-primary-900 dark:text-primary-200" aria-hidden="true">
+            <svg data-p-icon="users"></svg>
+          </span>
+        </article>
+        <article class="relative grid gap-2 rounded-xl border border-surface-200 bg-surface-0 p-5 shadow-sm dark:border-surface-800 dark:bg-surface-900">
+          <span class="text-sm text-color-secondary">Actividad</span>
+          <strong class="text-3xl tracking-tight">24</strong>
+          <span class="text-xs text-color-secondary">Esta semana</span>
+          <span class="absolute right-5 top-5 grid size-9 place-items-center rounded-lg bg-primary-50 text-primary-700 dark:bg-primary-900 dark:text-primary-200" aria-hidden="true">
+            <svg data-p-icon="chart-bar"></svg>
+          </span>
+        </article>
+      </section>
+
+      <section class="rounded-xl border border-surface-200 bg-surface-0 p-5 shadow-sm dark:border-surface-800 dark:bg-surface-900 sm:p-6" aria-labelledby="activity-title">
+        <div>
+          <h2 id="activity-title" class="m-0 text-base font-semibold">Actividad reciente</h2>
+          <p class="mb-0 mt-1 text-sm text-color-secondary">Un vistazo rápido a tu espacio de trabajo</p>
+        </div>
+        <div class="mt-6 flex h-48 items-end justify-around gap-3 border-b border-surface-200 px-4 sm:px-8" aria-hidden="true">
+          <span class="h-[38%] w-8 rounded-t-md bg-primary-300"></span>
+          <span class="h-[65%] w-8 rounded-t-md bg-primary-300"></span>
+          <span class="h-[52%] w-8 rounded-t-md bg-primary-300"></span>
+          <span class="h-[82%] w-8 rounded-t-md bg-primary"></span>
+          <span class="h-[52%] w-8 rounded-t-md bg-primary-300"></span>
+          <span class="h-[38%] w-8 rounded-t-md bg-primary-300"></span>
+        </div>
+      </section>
+    </main>
+  </p-sidebar-main>
+</p-sidebar-layout>
