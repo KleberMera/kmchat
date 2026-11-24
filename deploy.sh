@@ -18,8 +18,8 @@ npm install
 echo ""
 echo "🏗️ Compilando Angular..."
 
-# ng build 
-#ng build --base-href /controlelectoral/
+ng build 
+# ng build --base-href /controlelectoral/
 # ng build --configuration production --base-href /controlelectoral/
 
 echo ""
