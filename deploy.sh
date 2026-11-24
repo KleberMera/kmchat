@@ -25,7 +25,7 @@ echo "🏗️ Compilando Angular..."
 echo ""
 echo "📂 Publicando archivos..."
 
-sudo rsync -av --delete dist/SCE/browser/ /var/www/sce/
+sudo rsync -av --delete dist/kmchat/browser/ /var/www/kmchat/
 
 echo ""
 echo "✅ Frontend desplegado correctamente."
