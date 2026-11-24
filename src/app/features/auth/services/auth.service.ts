@@ -16,9 +16,11 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly storage = inject(StorageServices);
   protected readonly url = environment.apiUrl;
+
+  
   login(credentials: LoginCredentials): Observable<ApiResponse<AuthenticatedUser>> {
     return this.http
-      .post<ApiResponse<AuthenticatedUser>>(this.url, credentials)
+      .post<ApiResponse<AuthenticatedUser>>(`${this.url}/auth/login`, credentials)
       .pipe(tap((response) => this.storage.saveUser(response.data)));
   }
 }
