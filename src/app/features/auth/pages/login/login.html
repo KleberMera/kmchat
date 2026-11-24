@@ -9,12 +9,13 @@
     <h1 id="login-title" class="m-0 text-3xl font-bold tracking-tight text-color">Bienvenido</h1>
     <p class="mb-7 mt-2 text-color-secondary">Ingresa tus datos para continuar al panel.</p>
 
-    <form class="grid gap-3" (submit)="enterDashboard($event)">
+    <form class="grid gap-3" [formGroup]="loginForm" (ngSubmit)="login()" novalidate>
       <label for="username" class="mt-1 text-sm font-semibold text-color">Usuario</label>
       <input
         id="username"
         name="username"
         type="text"
+        formControlName="username"
         autocomplete="username"
         placeholder="Tu usuario"
         class="min-h-12 w-full rounded-lg border border-surface-300 bg-surface-0 px-3 text-color outline-none placeholder:text-muted-color autofill:bg-surface-0 autofill:text-color focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800 dark:autofill:bg-surface-800"
@@ -25,16 +26,22 @@
         id="password"
         name="password"
         type="password"
+        formControlName="password"
         autocomplete="current-password"
         placeholder="Tu contraseña"
         class="min-h-12 w-full rounded-lg border border-surface-300 bg-surface-0 px-3 text-color outline-none placeholder:text-muted-color autofill:bg-surface-0 autofill:text-color focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800 dark:autofill:bg-surface-800"
       />
 
       <button
-        class="mt-3 min-h-12 rounded-lg bg-primary px-4 font-semibold text-primary-contrast transition-colors hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        class="mt-3 min-h-12 rounded-lg bg-primary px-4 font-semibold text-primary-contrast transition-colors hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-70"
         type="submit"
+        [disabled]="isSubmitting()"
       >
-        Ingresar
+        @if (isSubmitting()) {
+          Ingresando...
+        } @else {
+          Ingresar
+        }
       </button>
     </form>
   </section>

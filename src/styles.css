@@ -3,5 +3,6 @@
 @import 'tailwindcss';
 /* @import "tailwindcss"; */
 @import "tailwindcss-primeui";
+@import 'sweetalert2/dist/sweetalert2.min.css';
 
 @custom-variant dark (&:where(.my-app-dark, .my-app-dark *));
