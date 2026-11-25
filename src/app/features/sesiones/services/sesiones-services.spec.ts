@@ -3,6 +3,7 @@ import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../../environments/environment';
 import { SesionesServices } from './sesiones-services';
@@ -25,13 +26,20 @@ describe('SesionesServices', () => {
   });
 
   it('loads sessions for a user', () => {
-    service.getUserSessions('user-id').subscribe();
+    const userId = signal<string | null>('user-id');
+    const resource = TestBed.runInInjectionContext(() =>
+      service.getUserSessions(userId),
+    );
+    TestBed.flushEffects();
 
     const request = httpTestingController.expectOne(
       `${sessionsUrl}/user/user-id`,
     );
     expect(request.request.method).toBe('GET');
     request.flush({ data: [], message: 'OK', status: 200 });
+    TestBed.flushEffects();
+    expect(resource.hasValue()).toBe(true);
+    expect(resource.value()?.data).toEqual([]);
   });
 
   it('creates a session with its user id and name', () => {
@@ -58,7 +66,11 @@ describe('SesionesServices', () => {
   });
 
   it('requests a session QR by its session id', () => {
-    service.getSessionQr('session-id').subscribe();
+    const sessionId = signal<string | null>('session-id');
+    const resource = TestBed.runInInjectionContext(() =>
+      service.getSessionQr(sessionId),
+    );
+    TestBed.flushEffects();
 
     const request = httpTestingController.expectOne(
       `${sessionsUrl}/session-id/qr`,
@@ -69,6 +81,8 @@ describe('SesionesServices', () => {
       message: 'OK',
       status: 200,
     });
+    TestBed.flushEffects();
+    expect(resource.hasValue()).toBe(true);
   });
 
   it('restarts a session by its session id', () => {
@@ -79,5 +93,15 @@ describe('SesionesServices', () => {
     );
     expect(request.request.method).toBe('POST');
     request.flush({ data: null, message: 'Reiniciada', status: 200 });
+  });
+
+  it('deletes a session by its session id', () => {
+    service.deleteSession('session-id').subscribe();
+
+    const request = httpTestingController.expectOne(
+      `${sessionsUrl}/session-id`,
+    );
+    expect(request.request.method).toBe('DELETE');
+    request.flush({ data: null, message: 'Eliminada', status: 200 });
   });
 });

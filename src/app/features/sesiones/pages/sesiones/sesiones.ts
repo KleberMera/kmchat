@@ -1,16 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormField, form, required, submit } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import Swal from 'sweetalert2';
 import { SESSION_STATUS } from '../../../../shared/constants/status.constants';
 import type { ApiResponse } from '../../../../shared/models/api-response';
 import { StorageServices } from '../../../../shared/services/storage-services';
-import type {
-  CreateSessionRequest,
-  SessionQrData,
-  UserSession,
-} from '../../models/session.model';
+import type { CreateSessionRequest, SessionQrData, UserSession } from '../../models/session.model';
 import { SesionesServices } from '../../services/sesiones-services';
 
 @Component({
@@ -18,50 +14,71 @@ import { SesionesServices } from '../../services/sesiones-services';
   selector: 'app-sesiones',
   templateUrl: './sesiones.html',
 })
-export class Sesiones implements OnInit {
+export class Sesiones {
   private readonly sessionsService = inject(SesionesServices);
   private readonly storage = inject(StorageServices);
   private readonly swal = Swal.mixin({ theme: 'dark' });
 
-  readonly sessions = signal<UserSession[]>([]);
-  readonly isLoading = signal(false);
-  readonly loadError = signal<string | null>(null);
+  readonly userId = signal(this.storage.getUser()?.id ?? null);
+  readonly sessionsResource = this.sessionsService.getUserSessions(this.userId);
+  readonly sessions = computed(() =>
+    this.sessionsResource.hasValue() ? this.sessionsResource.value().data : [],
+  );
+  readonly isLoading = this.sessionsResource.isLoading;
+  readonly loadError = computed(() => {
+    if (!this.userId()) {
+      return 'No se encontró el usuario autenticado.';
+    }
+
+    const error = this.sessionsResource.error();
+    return error ? this.getErrorMessage(error, 'No se pudieron cargar las sesiones.') : null;
+  });
   readonly isCreateFormVisible = signal(false);
   readonly isCreating = signal(false);
-  readonly qrLoadingSession = signal<string | null>(null);
   readonly restartingSession = signal<string | null>(null);
+  readonly deletingSession = signal<string | null>(null);
   readonly createSessionModel = signal({ name: '' });
   readonly createSessionForm = form(this.createSessionModel, (path) => {
     required(path.name, { message: 'El nombre de la sesión es obligatorio.' });
   });
+  readonly qrSessionId = signal<string | null>(null);
+  readonly qrResource = this.sessionsService.getSessionQr(this.qrSessionId);
+  readonly qrLoadingSession = this.qrSessionId;
 
-  ngOnInit(): void {
-    void this.loadSessions();
-  }
-
-  async loadSessions(): Promise<void> {
-    const user = this.storage.getUser();
-    if (!user) {
-      this.sessions.set([]);
-      this.loadError.set('No se encontró el usuario autenticado.');
+  private readonly qrResourceEffect = effect(() => {
+    const sessionId = this.qrSessionId();
+    if (!sessionId) {
       return;
     }
 
-    this.isLoading.set(true);
-    this.loadError.set(null);
-
-    try {
-      const response = await firstValueFrom(
-        this.sessionsService.getUserSessions(user.id),
-      );
-      this.sessions.set(response.data);
-    } catch (error: unknown) {
-      this.loadError.set(
-        this.getErrorMessage(error, 'No se pudieron cargar las sesiones.'),
-      );
-    } finally {
-      this.isLoading.set(false);
+    const status = this.qrResource.status();
+    if (status === 'error') {
+      const error = this.qrResource.error();
+      this.qrSessionId.set(null);
+      if (error) {
+        void this.showError(this.getErrorMessage(error, 'No se pudo consultar el código QR.'));
+      }
+      return;
     }
+
+    if (status !== 'resolved' || !this.qrResource.hasValue()) {
+      return;
+    }
+
+    const session = this.sessions().find((item) => item.sessionId === sessionId);
+    const qrData = this.qrResource.value().data;
+    this.qrSessionId.set(null);
+
+    if (!session) {
+      void this.showError('No se encontró la sesión solicitada.');
+      return;
+    }
+
+    void this.showQrResult(session, qrData);
+  });
+
+  reloadSessions(): void {
+    this.sessionsResource.reload();
   }
 
   toggleCreateForm(): void {
@@ -95,21 +112,17 @@ export class Sesiones implements OnInit {
 
       let response: ApiResponse<UserSession>;
       try {
-        response = await firstValueFrom(
-          this.sessionsService.createSession(request),
-        );
+        response = await firstValueFrom(this.sessionsService.createSession(request));
       } catch (error: unknown) {
         this.isCreating.set(false);
-        await this.showError(
-          this.getErrorMessage(error, 'No se pudo crear la sesión.'),
-        );
+        await this.showError(this.getErrorMessage(error, 'No se pudo crear la sesión.'));
         return;
       }
 
       this.isCreating.set(false);
       this.createSessionForm().reset({ name: '' });
       this.isCreateFormVisible.set(false);
-      await this.loadSessions();
+      this.sessionsResource.reload();
       await this.swal.fire({
         icon: 'success',
         title: 'Sesión creada',
@@ -120,26 +133,14 @@ export class Sesiones implements OnInit {
   }
 
   async viewQr(session: UserSession): Promise<void> {
-    if (this.qrLoadingSession()) {
+    if (this.qrSessionId() || this.restartingSession() || this.deletingSession()) {
       return;
     }
 
-    this.qrLoadingSession.set(session.id);
-    let response: ApiResponse<SessionQrData>;
-    try {
-      response = await firstValueFrom(
-        this.sessionsService.getSessionQr(session.sessionId),
-      );
-    } catch (error: unknown) {
-      this.qrLoadingSession.set(null);
-      await this.showError(
-        this.getErrorMessage(error, 'No se pudo consultar el código QR.'),
-      );
-      return;
-    }
-    this.qrLoadingSession.set(null);
+    this.qrSessionId.set(session.sessionId);
+  }
 
-    const qrData = response.data;
+  private async showQrResult(session: UserSession, qrData: SessionQrData): Promise<void> {
     if (qrData.hasQr && qrData.qr) {
       const qrImage = qrData.qr.startsWith('data:image/')
         ? qrData.qr
@@ -164,14 +165,12 @@ export class Sesiones implements OnInit {
     } else if (qrData.hasQr) {
       await this.showError('La respuesta no incluyó una imagen QR válida.');
     } else {
-      await this.showWarning(
-        'La sesión no está activa. Reiníciala para obtener un código QR.',
-      );
+      await this.showWarning('La sesión no está activa. Reiníciala para obtener un código QR.');
     }
   }
 
   async restartSession(session: UserSession): Promise<void> {
-    if (this.restartingSession()) {
+    if (this.restartingSession() || this.deletingSession() || this.qrLoadingSession()) {
       return;
     }
 
@@ -190,23 +189,58 @@ export class Sesiones implements OnInit {
     this.restartingSession.set(session.id);
     let message: string;
     try {
-      const response = await firstValueFrom(
-        this.sessionsService.restartSession(session.sessionId),
-      );
+      const response = await firstValueFrom(this.sessionsService.restartSession(session.sessionId));
       message = response.message;
     } catch (error: unknown) {
       this.restartingSession.set(null);
-      await this.showError(
-        this.getErrorMessage(error, 'No se pudo reiniciar la sesión.'),
-      );
+      await this.showError(this.getErrorMessage(error, 'No se pudo reiniciar la sesión.'));
       return;
     }
     this.restartingSession.set(null);
 
-    await this.loadSessions();
+    this.sessionsResource.reload();
     await this.swal.fire({
       icon: 'success',
       title: 'Sesión reiniciada',
+      text: message,
+      confirmButtonText: 'Aceptar',
+    });
+  }
+
+  async deleteSession(session: UserSession): Promise<void> {
+    if (this.deletingSession() || this.restartingSession() || this.qrLoadingSession()) {
+      return;
+    }
+
+    const confirmation = await this.swal.fire({
+      icon: 'warning',
+      title: '¿Eliminar sesión?',
+      text: `Se eliminará la sesión "${session.name}". Esta acción no se puede deshacer.`,
+      showCancelButton: true,
+      confirmButtonText: 'Eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!confirmation.isConfirmed) {
+      return;
+    }
+
+    this.deletingSession.set(session.id);
+    let message: string;
+    try {
+      const response = await firstValueFrom(this.sessionsService.deleteSession(session.sessionId));
+      message = response.message;
+    } catch (error: unknown) {
+      this.deletingSession.set(null);
+      await this.showError(this.getErrorMessage(error, 'No se pudo eliminar la sesión.'));
+      return;
+    }
+    this.deletingSession.set(null);
+
+    this.sessionsResource.reload();
+    await this.swal.fire({
+      icon: 'success',
+      title: 'Sesión eliminada',
       text: message,
       confirmButtonText: 'Aceptar',
     });
@@ -228,8 +262,7 @@ export class Sesiones implements OnInit {
   }
 
   getStatusClasses(status: string): string {
-    const baseClasses =
-      'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold';
+    const baseClasses = 'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold';
 
     switch (status) {
       case SESSION_STATUS.PENDING:

@@ -36,9 +36,7 @@
           type="text"
           [formField]="createSessionForm.name"
           [attr.aria-invalid]="
-            createSessionForm.name().touched() && createSessionForm.name().invalid()
-              ? 'true'
-              : null
+            createSessionForm.name().touched() && createSessionForm.name().invalid() ? 'true' : null
           "
           [attr.aria-describedby]="
             createSessionForm.name().touched() && createSessionForm.name().invalid()
@@ -51,11 +49,7 @@
         />
         @if (createSessionForm.name().touched() && createSessionForm.name().invalid()) {
           @for (error of createSessionForm.name().errors(); track error.kind) {
-            <p
-              id="session-name-error"
-              class="text-sm text-red-600 dark:text-red-400"
-              role="alert"
-            >
+            <p id="session-name-error" class="text-sm text-red-600 dark:text-red-400" role="alert">
               {{ error.message }}
             </p>
           }
@@ -98,7 +92,7 @@
       <button
         class="min-h-10 rounded-lg border border-current px-4 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         type="button"
-        (click)="loadSessions()"
+        (click)="reloadSessions()"
       >
         Reintentar
       </button>
@@ -159,8 +153,11 @@
                 class="min-h-10 flex-1 rounded-lg bg-primary px-3 font-semibold text-primary-contrast transition-colors hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-70"
                 type="button"
                 [disabled]="
-                  qrLoadingSession() !== null || restartingSession() !== null
+                  qrLoadingSession() !== null ||
+                  restartingSession() !== null ||
+                  deletingSession() !== null
                 "
+                [attr.aria-label]="'Ver QR de ' + session.name"
                 (click)="viewQr(session)"
               >
                 {{ qrLoadingSession() === session.id ? 'Consultando...' : 'Ver QR' }}
@@ -169,15 +166,27 @@
                 class="min-h-10 flex-1 rounded-lg border border-surface-300 px-3 font-semibold text-color transition-colors hover:bg-surface-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-70 dark:border-surface-600 dark:hover:bg-surface-800"
                 type="button"
                 [disabled]="
-                  restartingSession() !== null || qrLoadingSession() !== null
+                  restartingSession() !== null ||
+                  qrLoadingSession() !== null ||
+                  deletingSession() !== null
                 "
+                [attr.aria-label]="'Reiniciar sesión ' + session.name"
                 (click)="restartSession(session)"
               >
-                {{
-                  restartingSession() === session.id
-                    ? 'Reiniciando...'
-                    : 'Reiniciar sesión'
-                }}
+                {{ restartingSession() === session.id ? 'Reiniciando...' : 'Reiniciar sesión' }}
+              </button>
+              <button
+                class="min-h-10 flex-1 rounded-lg border border-red-300 px-3 font-semibold text-red-700 transition-colors hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:opacity-70 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/30"
+                type="button"
+                [disabled]="
+                  deletingSession() !== null ||
+                  restartingSession() !== null ||
+                  qrLoadingSession() !== null
+                "
+                [attr.aria-label]="'Eliminar sesión ' + session.name"
+                (click)="deleteSession(session)"
+              >
+                {{ deletingSession() === session.id ? 'Eliminando...' : 'Eliminar' }}
               </button>
             </div>
           </li>

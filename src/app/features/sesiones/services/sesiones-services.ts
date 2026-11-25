@@ -1,5 +1,9 @@
-import { HttpClient } from '@angular/common/http';
-import { inject, Service } from '@angular/core';
+import {
+  HttpClient,
+  httpResource,
+  type HttpResourceRef,
+} from '@angular/common/http';
+import { inject, Service, type Signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import type { ApiResponse } from '../../../shared/models/api-response';
@@ -14,10 +18,26 @@ export class SesionesServices {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = `${environment.apiUrl}/sessions`;
 
-  getUserSessions(userId: string): Observable<ApiResponse<UserSession[]>> {
-    return this.http.get<ApiResponse<UserSession[]>>(
-      `${this.apiUrl}/user/${encodeURIComponent(userId)}`,
-    );
+  getUserSessions(
+    userId: Signal<string | null>,
+  ): HttpResourceRef<ApiResponse<UserSession[]> | undefined> {
+    return httpResource<ApiResponse<UserSession[]>>(() => {
+      const currentUserId = userId();
+      return currentUserId
+        ? `${this.apiUrl}/user/${encodeURIComponent(currentUserId)}`
+        : undefined;
+    });
+  }
+
+  getSessionQr(
+    sessionId: Signal<string | null>,
+  ): HttpResourceRef<ApiResponse<SessionQrData> | undefined> {
+    return httpResource<ApiResponse<SessionQrData>>(() => {
+      const currentSessionId = sessionId();
+      return currentSessionId
+        ? `${this.apiUrl}/${encodeURIComponent(currentSessionId)}/qr`
+        : undefined;
+    });
   }
 
   createSession(
@@ -26,16 +46,16 @@ export class SesionesServices {
     return this.http.post<ApiResponse<UserSession>>(this.apiUrl, request);
   }
 
-  getSessionQr(sessionId: string): Observable<ApiResponse<SessionQrData>> {
-    return this.http.get<ApiResponse<SessionQrData>>(
-      `${this.apiUrl}/${encodeURIComponent(sessionId)}/qr`,
-    );
-  }
-
   restartSession(sessionId: string): Observable<ApiResponse<unknown>> {
     return this.http.post<ApiResponse<unknown>>(
       `${this.apiUrl}/${encodeURIComponent(sessionId)}/restart`,
       null,
+    );
+  }
+
+  deleteSession(sessionId: string): Observable<ApiResponse<unknown>> {
+    return this.http.delete<ApiResponse<unknown>>(
+      `${this.apiUrl}/${encodeURIComponent(sessionId)}`,
     );
   }
 }
