@@ -49,7 +49,9 @@
                       [routerLink]="item.path"
                       routerLinkActive
                       #activeLink="routerLinkActive"
-                      [routerLinkActiveOptions]="{ exact: true }"
+                      [routerLinkActiveOptions]="{
+                        exact: item.path !== '/masiva' && item.path !== '/lotes'
+                      }"
                       [isActive]="activeLink.isActive"
                       [attr.aria-current]="activeLink.isActive ? 'page' : null"
                       (click)="closeNavigationOnMobile()"

@@ -1,30 +1,72 @@
-import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormField, form, min, required, submit } from '@angular/forms/signals';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import Swal from 'sweetalert2';
 import { SESSION_STATUS } from '../../../../shared/constants/status.constants';
 import type { ApiResponse } from '../../../../shared/models/api-response';
 import { StorageServices } from '../../../../shared/services/storage-services';
-import type { UserSession } from '../../../sesiones/models/session.model';
+import { formatEcuadorianPhone } from '../../../../shared/utils/phone.utils';
 import { SesionesServices } from '../../../sesiones/services/sesiones-services';
+import type { BulkRecipient, BulkStartRequest, BulkStartResponse } from '../../models/bulk.model';
 import { BulkService } from '../../services/bulk.service';
-import type {
-  BulkBatchDetail,
-  BulkBatchStatus,
-  BulkBatchSummary,
-  BulkMessageLog,
-  BulkRecipient,
-  BulkStartRequest,
-  BulkStartResponse,
-} from '../../models/bulk.model';
+import {
+  getBulkErrorMessage,
+  minutesToMilliseconds,
+  normalizeBulkRecipientHeader,
+} from '../../utils/bulk.utils';
+
+import { ButtonModule } from 'primeng/button';
+import { TagModule } from 'primeng/tag';
+import { MessageModule } from 'primeng/message';
+import { SkeletonModule } from 'primeng/skeleton';
+import { InputTextModule } from 'primeng/inputtext';
+import { InputGroupModule } from 'primeng/inputgroup';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
+import { TableModule } from 'primeng/table';
+
+import { Whatsapp } from '@primeicons/angular/whatsapp';
+import { CheckCircle } from '@primeicons/angular/check-circle';
+import { FileExcel } from '@primeicons/angular/file-excel';
+import { Upload } from '@primeicons/angular/upload';
+import { Times } from '@primeicons/angular/times';
+import { Plus } from '@primeicons/angular/plus';
+import { Check } from '@primeicons/angular/check';
+import { User } from '@primeicons/angular/user';
+import { Send } from '@primeicons/angular/send';
+import { InfoCircle } from '@primeicons/angular/info-circle';
+import { ExclamationCircle } from '@primeicons/angular/exclamation-circle';
+import { Megaphone } from '@primeicons/angular/megaphone';
 
 @Component({
-  imports: [FormField],
+  imports: [
+    FormField,
+    ButtonModule,
+    TagModule,
+    MessageModule,
+    SkeletonModule,
+    InputTextModule,
+    InputGroupModule,
+    InputGroupAddonModule,
+    TableModule,
+    Whatsapp,
+    CheckCircle,
+    FileExcel,
+    Upload,
+    Times,
+    Plus,
+    Check,
+    User,
+    Send,
+    InfoCircle,
+    ExclamationCircle,
+    Megaphone,
+  ],
   selector: 'app-masiva',
   templateUrl: './masiva.html',
 })
 export class Masiva {
+  private readonly router = inject(Router);
   private readonly storage = inject(StorageServices);
   private readonly sessionsService = inject(SesionesServices);
   private readonly bulkService = inject(BulkService);
@@ -32,14 +74,12 @@ export class Masiva {
 
   readonly userId = signal(this.storage.getUser()?.id ?? null);
   readonly sessionsResource = this.sessionsService.getUserSessions(this.userId);
+  readonly formatPhone = formatEcuadorianPhone;
   readonly readySessions = computed(() =>
     this.sessionsResource.hasValue()
       ? this.sessionsResource
           .value()
-          .data.filter(
-            (session) =>
-              session.isActive && session.status === SESSION_STATUS.READY,
-          )
+          .data.filter((session) => session.isActive && session.status === SESSION_STATUS.READY)
       : [],
   );
   readonly sessionsError = computed(() => {
@@ -48,136 +88,61 @@ export class Masiva {
     }
 
     const error = this.sessionsResource.error();
-    return error
-      ? this.getErrorMessage(error, 'No se pudieron cargar las sesiones.')
-      : null;
+    return error ? getBulkErrorMessage(error, 'No se pudieron cargar las sesiones.') : null;
   });
   readonly selectedSessionIds = signal<string[]>([]);
+  readonly allReadySessionsSelected = computed(() => {
+    const sessions = this.readySessions();
+    return (
+      sessions.length > 0 &&
+      sessions.every((session) => this.selectedSessionIds().includes(session.sessionId))
+    );
+  });
   readonly recipients = signal<BulkRecipient[]>([]);
+  readonly isEmojiPickerOpen = signal(false);
+  readonly emojis = ['😀', '😂', '😍', '😊', '😉', '👍', '🙏', '❤️', '🎉', '🔥', '✅', '📞'];
   readonly recipientFileName = signal<string | null>(null);
   readonly recipientFileError = signal<string | null>(null);
   readonly isReadingFile = signal(false);
   readonly recipientHeaders = computed(() =>
     this.recipients().length ? Object.keys(this.recipients()[0]) : [],
   );
-  readonly previewHeaders = computed(() =>
-    this.recipientHeaders().slice(0, 5),
-  );
+  readonly detectedVariables = this.recipientHeaders;
+  readonly previewHeaders = computed(() => this.recipientHeaders().slice(0, 5));
   readonly previewRecipients = computed(() => this.recipients().slice(0, 5));
+  readonly messageLength = computed(() => this.campaignModel().message.length);
+  readonly previewMessage = computed(() => {
+    const recipient = this.recipients()[0];
+    const message = this.campaignModel().message;
+    return message.replace(
+      /\{([^}]+)\}/g,
+      (placeholder, key: string) => recipient?.[key] ?? placeholder,
+    );
+  });
 
   readonly campaignModel = signal({
     message: '',
-    delayBetweenMessagesMs: 1000,
+    delayBetweenMessagesMinutes: 1,
     batchSize: 50,
-    longPauseMs: 30000,
-    verifyDelayMs: 1000,
+    longPauseMinutes: 3,
+    verifyDelayMinutes: 1,
   });
   readonly campaignForm = form(this.campaignModel, (path) => {
     required(path.message, { message: 'El mensaje es obligatorio.' });
-    min(path.delayBetweenMessagesMs, 0, {
+    min(path.delayBetweenMessagesMinutes, 0, {
       message: 'La pausa entre mensajes no puede ser negativa.',
     });
     min(path.batchSize, 1, {
       message: 'El tamaño del lote debe ser al menos 1.',
     });
-    min(path.longPauseMs, 0, {
+    min(path.longPauseMinutes, 0, {
       message: 'La pausa larga no puede ser negativa.',
     });
-    min(path.verifyDelayMs, 0, {
+    min(path.verifyDelayMinutes, 0, {
       message: 'La pausa de verificación no puede ser negativa.',
     });
   });
   readonly isStarting = signal(false);
-
-  readonly historyPage = signal(1);
-  readonly historyResource = this.bulkService.getHistory(this.historyPage);
-  readonly history = computed(() =>
-    this.historyResource.hasValue()
-      ? this.historyResource.value().data
-      : null,
-  );
-  readonly historyError = computed(() => {
-    const error = this.historyResource.error();
-    return error
-      ? this.getErrorMessage(error, 'No se pudo cargar el historial.')
-      : null;
-  });
-
-  readonly selectedBatchId = signal<string | null>(null);
-  readonly statusResource = this.bulkService.getStatus(this.selectedBatchId);
-  readonly detailResource = this.bulkService.getBatch(this.selectedBatchId);
-  readonly logStatusFilter = signal<string | null>(null);
-  readonly logsPage = signal(1);
-  readonly logsResource = this.bulkService.getLogs(
-    this.selectedBatchId,
-    this.logStatusFilter,
-    this.logsPage,
-  );
-  readonly batchStatus = computed<BulkBatchStatus | null>(() =>
-    this.statusResource.hasValue()
-      ? this.statusResource.value().data
-      : null,
-  );
-  readonly batchDetail = computed<BulkBatchDetail | null>(() =>
-    this.detailResource.hasValue()
-      ? this.detailResource.value().data
-      : null,
-  );
-  readonly logs = computed<BulkMessageLog[]>(() =>
-    this.logsResource.hasValue()
-      ? this.logsResource.value().data.items
-      : [],
-  );
-  readonly logsPagination = computed(() =>
-    this.logsResource.hasValue()
-      ? this.logsResource.value().data.pagination
-      : null,
-  );
-  readonly statusError = computed(() => {
-    const error = this.statusResource.error();
-    return error
-      ? this.getErrorMessage(error, 'No se pudo consultar el progreso.')
-      : null;
-  });
-  readonly detailError = computed(() => {
-    const error = this.detailResource.error();
-    return error
-      ? this.getErrorMessage(error, 'No se pudo cargar el detalle del lote.')
-      : null;
-  });
-  readonly logsError = computed(() => {
-    const error = this.logsResource.error();
-    return error
-      ? this.getErrorMessage(error, 'No se pudieron cargar los registros.')
-      : null;
-  });
-  readonly isPolling = signal(false);
-
-  private readonly pollingEffect = effect((onCleanup) => {
-    if (!this.selectedBatchId() || !this.isPolling()) {
-      return;
-    }
-
-    const intervalId = setInterval(() => {
-      if (!this.statusResource.isLoading()) {
-        this.statusResource.reload();
-      }
-    }, 3000);
-    onCleanup(() => clearInterval(intervalId));
-  });
-
-  private readonly stopPollingEffect = effect(() => {
-    const status = this.batchStatus();
-    if (
-      this.isPolling() &&
-      status?.id === this.selectedBatchId() &&
-      status &&
-      this.isTerminalStatus(status.status)
-    ) {
-      this.isPolling.set(false);
-      this.historyResource.reload();
-    }
-  });
 
   async loadRecipients(event: Event): Promise<void> {
     const input = event.target;
@@ -202,19 +167,22 @@ export class Masiva {
       }
 
       const worksheet = workbook.Sheets[firstSheetName];
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
-        worksheet,
-        { blankrows: false, defval: '', raw: false },
-      );
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+        blankrows: false,
+        defval: '',
+        raw: false,
+      });
       if (rows.length === 0) {
         throw new Error('La primera hoja no contiene destinatarios.');
       }
 
       const phoneHeader = Object.keys(rows[0]).find(
-        (header) => header.trim().toLowerCase() === 'phone',
+        (header) => normalizeBulkRecipientHeader(header) === 'phone',
       );
       if (!phoneHeader) {
-        throw new Error('El Excel debe incluir una columna llamada "phone".');
+        throw new Error(
+          'El Excel debe incluir una columna "phone", "telefono", "teléfono" o "celular".',
+        );
       }
 
       const importedRecipients = rows
@@ -226,15 +194,10 @@ export class Masiva {
               continue;
             }
 
-            const field =
-              trimmedHeader.toLowerCase() === 'phone'
-                ? 'phone'
-                : trimmedHeader;
+            const field = normalizeBulkRecipientHeader(trimmedHeader);
             const cellValue = this.toCellString(value);
             recipient[field] =
-              field === 'phone'
-                ? this.normalizeEcuadorianPhone(cellValue)
-                : cellValue;
+              field === 'phone' ? this.normalizeEcuadorianPhone(cellValue) : cellValue;
           }
 
           return recipient;
@@ -250,9 +213,7 @@ export class Masiva {
     } catch (error: unknown) {
       this.recipients.set([]);
       this.recipientFileName.set(null);
-      this.recipientFileError.set(
-        this.getErrorMessage(error, 'No se pudo leer el archivo Excel.'),
-      );
+      this.recipientFileError.set(getBulkErrorMessage(error, 'No se pudo leer el archivo Excel.'));
     } finally {
       this.isReadingFile.set(false);
       input.value = '';
@@ -265,6 +226,33 @@ export class Masiva {
     this.recipientFileError.set(null);
   }
 
+  insertVariable(variable: string, textarea: HTMLTextAreaElement): void {
+    const token = `{${variable}}`;
+    this.replaceMessageSelection(textarea, token, token.length);
+  }
+
+  isVariableUsed(variable: string): boolean {
+    return this.campaignModel().message.includes(`{${variable}}`);
+  }
+
+  formatMessage(marker: '*' | '_' | '~' | '```', textarea: HTMLTextAreaElement): void {
+    const message = this.campaignModel().message;
+    const selectedText = message.slice(textarea.selectionStart, textarea.selectionEnd);
+    const replacement = `${marker}${selectedText}${marker}`;
+    const cursorOffset = selectedText ? replacement.length : marker.length;
+
+    this.replaceMessageSelection(textarea, replacement, cursorOffset);
+  }
+
+  insertEmoji(emoji: string, textarea: HTMLTextAreaElement): void {
+    this.replaceMessageSelection(textarea, emoji, emoji.length);
+    this.isEmojiPickerOpen.set(false);
+  }
+
+  toggleEmojiPicker(): void {
+    this.isEmojiPickerOpen.update((open) => !open);
+  }
+
   toggleSessionSelection(sessionId: string, event: Event): void {
     const input = event.target;
     if (!(input instanceof HTMLInputElement)) {
@@ -275,6 +263,14 @@ export class Masiva {
       input.checked
         ? [...new Set([...selected, sessionId])]
         : selected.filter((id) => id !== sessionId),
+    );
+  }
+
+  toggleAllSessions(): void {
+    this.selectedSessionIds.set(
+      this.allReadySessionsSelected()
+        ? []
+        : this.readySessions().map((session) => session.sessionId),
     );
   }
 
@@ -294,12 +290,56 @@ export class Masiva {
     }
 
     await submit(this.campaignForm, async () => {
-      this.isStarting.set(true);
       const model = this.campaignModel();
+      const sessionIds = [...this.selectedSessionIds()];
+      const recipients = [...this.recipients()];
+      const summary = document.createElement('div');
+      summary.className = 'grid gap-3 text-left';
+
+      const details = document.createElement('p');
+      details.className = 'm-0 whitespace-pre-line';
+      details.textContent = [
+        `Sesiones conectadas: ${sessionIds.length}`,
+        `Destinatarios: ${recipients.length}`,
+        `Pausa entre mensajes: ${model.delayBetweenMessagesMinutes} min`,
+        `Mensajes por lote: ${model.batchSize}`,
+        `Pausa larga: ${model.longPauseMinutes} min`,
+        `Pausa entre verificaciones: ${model.verifyDelayMinutes} min`,
+      ].join('\n');
+
+      const messageLabel = document.createElement('p');
+      messageLabel.className = 'm-0 font-semibold';
+      messageLabel.textContent = 'Mensaje a enviar';
+
+      const message = document.createElement('p');
+      message.className =
+        'm-0 max-h-32 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-surface-100 p-3 text-sm dark:bg-surface-800';
+      message.textContent = model.message;
+
+      summary.append(details, messageLabel, message);
+      const confirmation = await this.swal.fire({
+        icon: 'question',
+        title: '¿Confirmas el envío masivo?',
+        html: summary,
+        showCancelButton: true,
+        confirmButtonText: 'Sí, iniciar envío',
+        cancelButtonText: 'No, cancelar',
+        reverseButtons: true,
+        focusCancel: true,
+      });
+      if (!confirmation.isConfirmed) {
+        return;
+      }
+
+      this.isStarting.set(true);
       const request: BulkStartRequest = {
-        ...model,
-        sessionIds: this.selectedSessionIds(),
-        recipients: this.recipients(),
+        message: model.message,
+        delayBetweenMessagesMs: minutesToMilliseconds(model.delayBetweenMessagesMinutes),
+        batchSize: model.batchSize,
+        longPauseMs: minutesToMilliseconds(model.longPauseMinutes),
+        verifyDelayMs: minutesToMilliseconds(model.verifyDelayMinutes),
+        sessionIds,
+        recipients,
       };
 
       let response: ApiResponse<BulkStartResponse>;
@@ -307,128 +347,19 @@ export class Masiva {
         response = await firstValueFrom(this.bulkService.start(request));
       } catch (error: unknown) {
         this.isStarting.set(false);
-        await this.showError(
-          this.getErrorMessage(error, 'No se pudo iniciar el envío masivo.'),
-        );
+        await this.showError(getBulkErrorMessage(error, 'No se pudo iniciar el envío masivo.'));
         return;
       }
 
       this.isStarting.set(false);
-      this.selectedBatchId.set(response.data.batchId);
-      this.logStatusFilter.set(null);
-      this.logsPage.set(1);
-      this.isPolling.set(!this.isTerminalStatus(response.data.status));
-      if (this.historyPage() === 1) {
-        this.historyResource.reload();
-      } else {
-        this.historyPage.set(1);
-      }
-
       await this.swal.fire({
         icon: 'success',
         title: 'Envío iniciado',
-        text:
-          response.data.message ??
-          response.message ??
-          'El lote comenzó a procesarse.',
-        confirmButtonText: 'Ver progreso',
+        text: response.data.message ?? response.message ?? 'El lote comenzó a procesarse.',
+        confirmButtonText: 'Ver lote',
       });
+      await this.router.navigate(['/lotes', response.data.batchId]);
     });
-  }
-
-  selectBatch(batch: BulkBatchSummary): void {
-    this.selectedBatchId.set(batch.id);
-    this.logStatusFilter.set(null);
-    this.logsPage.set(1);
-    this.isPolling.set(!this.isTerminalStatus(batch.status));
-  }
-
-  changeHistoryPage(delta: number): void {
-    const page = this.history()?.pagination;
-    if (!page) {
-      return;
-    }
-
-    this.historyPage.update((current) =>
-      Math.min(page.totalPages, Math.max(1, current + delta)),
-    );
-  }
-
-  changeLogsPage(delta: number): void {
-    const pagination = this.logsPagination();
-    if (!pagination) {
-      return;
-    }
-
-    this.logsPage.update((current) =>
-      Math.min(pagination.totalPages, Math.max(1, current + delta)),
-    );
-  }
-
-  changeLogStatus(event: Event): void {
-    const select = event.target;
-    if (!(select instanceof HTMLSelectElement)) {
-      return;
-    }
-
-    this.logStatusFilter.set(select.value || null);
-    this.logsPage.set(1);
-  }
-
-  getBulkStatusLabel(status: string): string {
-    switch (status) {
-      case 'PENDING':
-        return 'Pendiente';
-      case 'PROCESSING':
-        return 'En proceso';
-      case 'COMPLETED':
-        return 'Completado';
-      case 'FAILED':
-        return 'Fallido';
-      case 'SENT':
-        return 'Enviado';
-      case 'INVALID':
-        return 'Inválido';
-      case 'CANCELLED':
-        return 'Cancelado';
-      default:
-        return status;
-    }
-  }
-
-  getBulkStatusClasses(status: string): string {
-    const baseClasses =
-      'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold';
-
-    switch (status) {
-      case 'PENDING':
-        return `${baseClasses} bg-amber-500/10 text-amber-700 dark:text-amber-300`;
-      case 'PROCESSING':
-        return `${baseClasses} bg-blue-500/10 text-blue-700 dark:text-blue-300`;
-      case 'COMPLETED':
-        return `${baseClasses} bg-emerald-500/10 text-emerald-700 dark:text-emerald-300`;
-      case 'SENT':
-        return `${baseClasses} bg-emerald-500/10 text-emerald-700 dark:text-emerald-300`;
-      case 'FAILED':
-        return `${baseClasses} bg-red-500/10 text-red-700 dark:text-red-300`;
-      case 'INVALID':
-        return `${baseClasses} bg-amber-500/10 text-amber-700 dark:text-amber-300`;
-      default:
-        return `${baseClasses} bg-surface-200 text-color-secondary dark:bg-surface-700`;
-    }
-  }
-
-  formatDate(value: string | null): string {
-    if (!value) {
-      return '—';
-    }
-
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-  }
-
-  private isTerminalStatus(status: string): boolean {
-    return status === 'COMPLETED' || status === 'FAILED';
   }
 
   private toCellString(value: unknown): string {
@@ -459,23 +390,25 @@ export class Masiva {
     });
   }
 
-  private getErrorMessage(error: unknown, fallback: string): string {
-    if (error instanceof HttpErrorResponse) {
-      const body: unknown = error.error;
-      if (
-        typeof body === 'object' &&
-        body !== null &&
-        'message' in body &&
-        typeof body.message === 'string'
-      ) {
-        return body.message;
-      }
-    }
+  private replaceMessageSelection(
+    textarea: HTMLTextAreaElement,
+    replacement: string,
+    cursorOffset: number,
+  ): void {
+    const message = this.campaignModel().message;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const updatedMessage = message.slice(0, start) + replacement + message.slice(end);
 
-    if (error instanceof Error && error.message) {
-      return error.message;
-    }
+    this.campaignModel.update((model) => ({
+      ...model,
+      message: updatedMessage,
+    }));
 
-    return fallback;
+    const cursorPosition = start + cursorOffset;
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(cursorPosition, cursorPosition);
+    });
   }
 }

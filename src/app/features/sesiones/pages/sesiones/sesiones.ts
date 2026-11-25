@@ -6,11 +6,14 @@ import Swal from 'sweetalert2';
 import { SESSION_STATUS } from '../../../../shared/constants/status.constants';
 import type { ApiResponse } from '../../../../shared/models/api-response';
 import { StorageServices } from '../../../../shared/services/storage-services';
+import { formatEcuadorianPhone } from '../../../../shared/utils/phone.utils';
 import type { CreateSessionRequest, SessionQrData, UserSession } from '../../models/session.model';
 import { SesionesServices } from '../../services/sesiones-services';
 
+import { DialogModule } from 'primeng/dialog';
+
 @Component({
-  imports: [FormField],
+  imports: [FormField, DialogModule],
   selector: 'app-sesiones',
   templateUrl: './sesiones.html',
 })
@@ -25,6 +28,7 @@ export class Sesiones {
     this.sessionsResource.hasValue() ? this.sessionsResource.value().data : [],
   );
   readonly isLoading = this.sessionsResource.isLoading;
+  readonly formatPhone = formatEcuadorianPhone;
   readonly loadError = computed(() => {
     if (!this.userId()) {
       return 'No se encontró el usuario autenticado.';
@@ -81,14 +85,27 @@ export class Sesiones {
     this.sessionsResource.reload();
   }
 
-  toggleCreateForm(): void {
-    if (this.isCreateFormVisible()) {
-      this.createSessionForm().reset({ name: '' });
-      this.isCreateFormVisible.set(false);
+  openCreateDialog(): void {
+    this.createSessionForm().reset({ name: '' });
+    this.isCreateFormVisible.set(true);
+  }
+
+  closeCreateDialog(): void {
+    if (this.isCreating()) {
       return;
     }
 
-    this.isCreateFormVisible.set(true);
+    this.createSessionForm().reset({ name: '' });
+    this.isCreateFormVisible.set(false);
+  }
+
+  onCreateDialogVisibilityChange(visible: boolean): void {
+    if (visible) {
+      this.isCreateFormVisible.set(true);
+      return;
+    }
+
+    this.closeCreateDialog();
   }
 
   async createSession(event: Event): Promise<void> {

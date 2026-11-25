@@ -39,6 +39,28 @@ export const routes: Routes = [
             (module) => module.Masiva,
           ),
       },
+      {
+        path: 'lotes',
+        loadComponent: () =>
+          import('./features/masiva/pages/lotes/lotes').then(
+            (module) => module.Lotes,
+          ),
+      },
+      {
+        path: 'lotes/:batchId',
+        loadComponent: () =>
+          import('./features/masiva/pages/lote/lote').then(
+            (module) => module.Lote,
+          ),
+      },
+      {
+        path: 'masiva/lotes/:batchId',
+        redirectTo: 'lotes/:batchId',
+      },
+      {
+        path: 'masiva/lotes',
+        redirectTo: 'lotes',
+      },
     ],
   },
   {

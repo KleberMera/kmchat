@@ -1,165 +1,377 @@
 <main class="mx-auto grid w-full max-w-7xl gap-6 p-4 sm:p-6 lg:p-9">
   <header>
-    <p class="mb-1 text-xs font-bold tracking-[0.12em] text-primary-700 dark:text-primary-300">
+    <p-tag severity="info" rounded class="mb-2">
+      <svg data-p-icon="megaphone"></svg>
       CAMPAÑAS
-    </p>
+    </p-tag>
     <h1 class="m-0 text-3xl font-bold tracking-tight">Envío masivo</h1>
-    <p class="mb-0 mt-2 text-sm text-color-secondary">
-      Selecciona sesiones conectadas, carga destinatarios desde Excel y monitorea el lote.
+    <p class="mb-0 mt-2 max-w-3xl text-sm text-muted-color">
+      Prepara un mensaje personalizado y envíalo a tus contactos desde las sesiones conectadas.
     </p>
   </header>
 
   <section
-    class="rounded-xl border border-surface-200 bg-surface-0 p-5 shadow-sm dark:border-surface-800 dark:bg-surface-900 sm:p-6"
+    class="overflow-hidden rounded-2xl border border-surface-200 bg-surface-0 shadow-sm dark:border-surface-800 dark:bg-surface-900"
     aria-labelledby="bulk-start-title"
   >
-    <h2 id="bulk-start-title" class="m-0 text-xl font-semibold">Configurar envío</h2>
-    <p class="mb-5 mt-2 text-sm text-color-secondary">
-      Los encabezados de Excel estarán disponibles como placeholders, por ejemplo
-      <code>{{ '{nombre}' }}</code>.
-    </p>
+    <div class="border-b border-surface-200 px-5 py-5 dark:border-surface-800 sm:px-7">
+      <h2 id="bulk-start-title" class="m-0 text-xl font-semibold">Configurar campaña</h2>
+      <p class="mb-0 mt-1 text-sm text-muted-color">
+        Completa los pasos para personalizar tu mensaje antes de enviarlo.
+      </p>
+    </div>
 
-    <form class="grid gap-6" (submit)="startBulk($event)" novalidate>
-      <fieldset class="grid gap-3">
-        <legend class="mb-1 text-sm font-semibold text-color">
-          Sesiones conectadas
+    <form class="grid gap-7 p-5 sm:p-7" (submit)="startBulk($event)" novalidate>
+      <!-- 1. SESIONES -->
+      <fieldset class="grid gap-4">
+        <legend class="flex w-full flex-wrap items-center justify-between gap-2">
+          <span class="flex items-center gap-3 text-sm font-semibold">
+            <span
+              class="grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-contrast"
+              >1</span
+            >
+            Sesiones conectadas
+          </span>
+          <span class="flex flex-wrap items-center gap-3">
+            <label
+              for="bulk-select-all-sessions"
+              class="flex cursor-pointer items-center gap-2 text-sm text-muted-color"
+            >
+              <input
+                id="bulk-select-all-sessions"
+                type="checkbox"
+                class="size-4 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                [checked]="allReadySessionsSelected()"
+                [disabled]="readySessions().length === 0"
+                (change)="toggleAllSessions()"
+              />
+              Seleccionar todas
+            </label>
+            <p-tag
+              [value]="selectedSessionIds().length + ' seleccionadas'"
+              [severity]="selectedSessionIds().length ? 'success' : 'secondary'"
+              rounded
+            />
+          </span>
         </legend>
-        <p class="m-0 text-sm text-color-secondary">
-          Solo se pueden seleccionar sesiones activas y con estado Conectada.
+        <p class="m-0 text-sm text-muted-color">
+          El envío se distribuirá entre las sesiones activas y conectadas.
         </p>
 
         @if (sessionsResource.isLoading()) {
-          <p class="m-0 text-sm text-color-secondary" aria-live="polite">
-            Cargando sesiones...
-          </p>
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-live="polite">
+            <p-skeleton height="5rem" borderRadius="0.75rem" />
+            <p-skeleton height="5rem" borderRadius="0.75rem" />
+            <p-skeleton height="5rem" borderRadius="0.75rem" />
+          </div>
         }
         @if (sessionsError(); as error) {
-          <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
+          <p-message severity="error">
+            <svg data-p-icon="exclamation-circle"></svg>
             {{ error }}
-          </p>
-        } @else if (
-          sessionsResource.hasValue() && readySessions().length === 0
-        ) {
-          <p class="m-0 text-sm text-color-secondary">
+          </p-message>
+        } @else if (sessionsResource.hasValue() && readySessions().length === 0) {
+          <p-message severity="secondary">
+            <svg data-p-icon="info-circle"></svg>
             No hay sesiones activas y conectadas disponibles.
-          </p>
+          </p-message>
         } @else {
           <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             @for (session of readySessions(); track session.id) {
               <label
-                class="flex cursor-pointer items-start gap-3 rounded-lg border border-surface-200 p-4 transition-colors hover:border-primary dark:border-surface-700"
+                class="group flex min-h-20 cursor-pointer items-center gap-3 rounded-xl border border-surface-200 p-4 transition-all hover:border-primary hover:shadow-sm has-[:checked]:border-primary has-[:checked]:bg-primary-50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary dark:border-surface-700 dark:has-[:checked]:bg-primary-900/20"
                 [for]="'bulk-session-' + session.id"
               >
+                <span
+                  class="grid size-10 shrink-0 place-items-center rounded-full bg-surface-100 text-primary dark:bg-surface-800"
+                >
+                  <svg data-p-icon="whatsapp" class="size-5"></svg>
+                </span>
+                <span class="grid min-w-0 flex-1 gap-0.5">
+                  <span class="truncate font-semibold">{{ session.name }}</span>
+                  <span class="text-xs text-muted-color">
+                    {{ formatPhone(session.phoneNumber) || 'Sin teléfono asignado' }}
+                  </span>
+                </span>
                 <input
-                  class="mt-1 size-4 accent-primary"
+                  class="sr-only"
                   type="checkbox"
                   [id]="'bulk-session-' + session.id"
                   [checked]="selectedSessionIds().includes(session.sessionId)"
                   (change)="toggleSessionSelection(session.sessionId, $event)"
                 />
-                <span class="grid min-w-0 gap-1">
-                  <span class="truncate font-semibold">{{ session.name }}</span>
-                  <span class="text-xs text-color-secondary">
-                    {{ session.phoneNumber || 'Sin teléfono asignado' }}
-                  </span>
-                </span>
+                <svg
+                  data-p-icon="check-circle"
+                  class="size-5 text-primary opacity-0 transition-opacity group-has-[:checked]:opacity-100"
+                ></svg>
               </label>
             }
           </div>
         }
-        <p class="m-0 text-xs text-color-secondary" aria-live="polite">
-          Sesiones seleccionadas: {{ selectedSessionIds().length }}
-        </p>
       </fieldset>
 
-      <fieldset class="grid gap-3">
-        <legend class="text-sm font-semibold text-color">Destinatarios desde Excel</legend>
-        <p class="m-0 text-sm text-color-secondary">
-          Sube un archivo .xlsx o .xls. La primera hoja debe tener una fila de encabezados e incluir
-          la columna <code>phone</code>. Las demás columnas se enviarán como campos dinámicos.
-          Los números ecuatorianos que empiecen por 0 se convertirán automáticamente a formato 593,
-          por ejemplo <code>09XXXXXXXX</code> a <code>5939XXXXXXXX</code>. Si ya tienen 593, no se
-          vuelve a agregar.
-        </p>
-        <div class="flex flex-wrap items-center gap-3">
-          <label
-            class="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-surface-300 px-4 font-semibold text-color transition-colors hover:bg-surface-100 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary dark:border-surface-600 dark:hover:bg-surface-800"
+      <!-- 2. DESTINATARIOS -->
+      <fieldset class="grid gap-6">
+        <legend class="mb-3 flex items-center gap-3 text-sm font-semibold">
+          <span
+            class="grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-contrast"
+            >2</span
           >
-            <span>{{ isReadingFile() ? 'Leyendo Excel...' : 'Seleccionar Excel' }}</span>
-            <input
-              class="sr-only"
-              type="file"
-              accept=".xlsx,.xls"
-              [disabled]="isReadingFile()"
-              (change)="loadRecipients($event)"
-            />
-          </label>
-          @if (recipientFileName(); as fileName) {
-            <span class="text-sm text-color-secondary">{{ fileName }}</span>
+          Destinatarios y variables
+        </legend>
+
+        <div
+          class="flex flex-col items-center gap-4 rounded-xl border-2 border-dashed border-surface-300 bg-surface-50 p-6 text-center dark:border-surface-700 dark:bg-surface-800/50 sm:flex-row sm:text-left"
+        >
+          <span
+            class="grid size-14 shrink-0 place-items-center rounded-full bg-primary-50 text-primary dark:bg-primary-900/30"
+          >
+            <svg data-p-icon="file-excel" class="size-7"></svg>
+          </span>
+          <div class="flex-1">
+            <p class="m-0 font-semibold">Carga tu archivo de contactos</p>
+            <p class="mb-0 mt-1 text-sm text-muted-color">
+              Excel .xlsx o .xls con una columna <code>phone</code>, <code>telefono</code>,
+              <code>teléfono</code> o <code>celular</code> y los datos que quieras usar en el
+              mensaje.
+            </p>
+          </div>
+          <input
+            #fileInput
+            class="sr-only"
+            type="file"
+            accept=".xlsx,.xls"
+            [disabled]="isReadingFile()"
+            (change)="loadRecipients($event)"
+          />
+          <button
+            pButton
+            type="button"
+            [loading]="isReadingFile()"
+            [disabled]="isReadingFile()"
+            (click)="fileInput.click()"
+          >
+            <svg data-p-icon="upload"></svg>
+            {{ isReadingFile() ? 'Leyendo archivo...' : 'Seleccionar Excel' }}
+          </button>
+        </div>
+
+        @if (recipientFileName(); as fileName) {
+          <div
+            class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm dark:border-primary-800 dark:bg-primary-900/20"
+          >
+            <span class="flex items-center gap-2 font-medium">
+              <svg data-p-icon="check-circle" class="size-4 text-primary"></svg>
+              {{ fileName }}
+              <p-tag [value]="recipients().length + ' contactos'" severity="info" rounded />
+            </span>
             <button
-              class="min-h-9 rounded-lg px-3 text-sm font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 dark:text-red-300 dark:hover:bg-red-950/30"
+              pButton
               type="button"
+              severity="danger"
+              variant="text"
+              size="small"
               (click)="clearRecipients()"
             >
-              Quitar archivo
+              <svg data-p-icon="times"></svg>
+              Quitar
             </button>
-          }
-        </div>
-        @if (recipientFileError(); as error) {
-          <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
-            {{ error }}
-          </p>
+          </div>
         }
+        @if (recipientFileError(); as error) {
+          <p-message severity="error">
+            <svg data-p-icon="exclamation-circle"></svg>
+            {{ error }}
+          </p-message>
+        }
+
         @if (recipients().length > 0) {
-          <div class="grid gap-3 rounded-lg bg-surface-50 p-4 dark:bg-surface-800">
-            <p class="m-0 text-sm font-semibold">
-              {{ recipients().length }} destinatarios listos
-            </p>
-            <p class="m-0 text-xs text-color-secondary">
-              Placeholders disponibles:
-              @for (header of recipientHeaders(); track header) {
-                <code class="mr-2">{{ '{' + header + '}' }}</code>
-              }
-            </p>
-            <div class="overflow-x-auto">
-              <table class="w-full min-w-max border-collapse text-left text-xs">
-                <thead>
-                  <tr class="border-b border-surface-300 dark:border-surface-700">
-                    @for (header of previewHeaders(); track header) {
-                      <th class="px-3 py-2 font-semibold">{{ header }}</th>
+          <div class="grid gap-5">
+            <div class="grid gap-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="m-0 text-sm font-semibold">Vista previa del Excel</p>
+                <span class="text-xs text-muted-color">Mostrando hasta 5 contactos</span>
+              </div>
+              <p-table
+                [value]="previewRecipients()"
+                [columns]="previewHeaders()"
+                size="small"
+                stripedRows
+                [scrollable]="true"
+                styleClass="rounded-lg border border-surface-200 text-xs dark:border-surface-700"
+              >
+                <ng-template #header let-columns>
+                  <tr>
+                    @for (header of columns; track header) {
+                      <th>{{ header }}</th>
                     }
                   </tr>
-                </thead>
-                <tbody>
-                  @for (recipient of previewRecipients(); track $index) {
-                    <tr class="border-b border-surface-200 last:border-0 dark:border-surface-700">
-                      @for (header of previewHeaders(); track header) {
-                        <td class="max-w-56 truncate px-3 py-2">
-                          {{ recipient[header] }}
-                        </td>
-                      }
-                    </tr>
-                  }
-                </tbody>
-              </table>
+                </ng-template>
+                <ng-template #body let-recipient let-columns="columns">
+                  <tr>
+                    @for (header of columns; track header) {
+                      <td class="max-w-56 truncate">
+                        {{ header === 'phone' ? formatPhone(recipient[header]) : recipient[header] }}
+                      </td>
+                    }
+                  </tr>
+                </ng-template>
+              </p-table>
             </div>
           </div>
+        } @else if (!recipientFileError()) {
+          <p class="m-0 text-sm text-muted-color">
+            Al cargar el Excel verás aquí los contactos y las variables disponibles.
+          </p>
         }
       </fieldset>
 
-      <div class="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+      <!-- 3. MENSAJE -->
+      <div class="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.8fr)]">
         <div class="grid content-start gap-3">
-          <label for="bulk-message" class="text-sm font-semibold text-color">
-            Mensaje
-          </label>
+          <div class="flex items-center justify-between gap-2">
+            <label for="bulk-message" class="flex items-center gap-3 text-sm font-semibold">
+              <span
+                class="grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-contrast"
+                >3</span
+              >
+              Escribe tu mensaje
+            </label>
+            <p-tag [value]="messageLength() + ' caracteres'" severity="secondary" rounded />
+          </div>
+          <p class="m-0 text-sm text-muted-color">
+            Personaliza el texto con las variables detectadas en tu archivo.
+          </p>
+          @if (recipients().length > 0) {
+            <div class="grid gap-2">
+              <p class="m-0 text-sm font-semibold">Variables detectadas</p>
+              <p class="m-0 text-xs text-muted-color">
+                Haz clic para insertar en la posición actual del cursor.
+              </p>
+              <div class="flex flex-wrap gap-2">
+                @for (variable of detectedVariables(); track variable) {
+                  <button
+                    pButton
+                    type="button"
+                    size="small"
+                    rounded
+                    [variant]="isVariableUsed(variable) ? undefined : 'outlined'"
+                    [attr.aria-label]="'Insertar variable ' + variable + ' en el mensaje'"
+                    (mousedown)="$event.preventDefault()"
+                    (click)="insertVariable(variable, messageInput)"
+                  >
+                    @if (isVariableUsed(variable)) {
+                      <svg data-p-icon="check"></svg>
+                    } @else {
+                      <svg data-p-icon="plus"></svg>
+                    }
+                    {{ '{' + variable + '}' }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
+          <div
+            class="flex flex-wrap items-center gap-2"
+            role="toolbar"
+            aria-label="Formato del mensaje"
+          >
+            <button
+              pButton
+              type="button"
+              size="small"
+              severity="secondary"
+              variant="outlined"
+              aria-label="Aplicar negrita"
+              title="Negrita"
+              (mousedown)="$event.preventDefault()"
+              (click)="formatMessage('*', messageInput)"
+            >
+              <strong>B</strong>
+            </button>
+            <button
+              pButton
+              type="button"
+              size="small"
+              severity="secondary"
+              variant="outlined"
+              aria-label="Aplicar cursiva"
+              title="Cursiva"
+              (mousedown)="$event.preventDefault()"
+              (click)="formatMessage('_', messageInput)"
+            >
+              <em>I</em>
+            </button>
+            <button
+              pButton
+              type="button"
+              size="small"
+              severity="secondary"
+              variant="outlined"
+              aria-label="Aplicar tachado"
+              title="Tachado"
+              (mousedown)="$event.preventDefault()"
+              (click)="formatMessage('~', messageInput)"
+            >
+              <s>S</s>
+            </button>
+            <button
+              pButton
+              type="button"
+              size="small"
+              severity="secondary"
+              variant="outlined"
+              aria-label="Aplicar monoespaciado"
+              title="Monoespaciado"
+              (mousedown)="$event.preventDefault()"
+              (click)="formatMessage('```', messageInput)"
+            >
+              <code>M</code>
+            </button>
+            <button
+              pButton
+              type="button"
+              size="small"
+              severity="secondary"
+              variant="outlined"
+              [attr.aria-expanded]="isEmojiPickerOpen()"
+              [attr.aria-controls]="isEmojiPickerOpen() ? 'bulk-emoji-picker' : null"
+              (click)="toggleEmojiPicker()"
+            >
+              😀 Emojis
+            </button>
+          </div>
+          @if (isEmojiPickerOpen()) {
+            <div
+              id="bulk-emoji-picker"
+              class="flex flex-wrap gap-1"
+              role="group"
+              aria-label="Selecciona un emoji"
+            >
+              @for (emoji of emojis; track emoji) {
+                <button
+                  type="button"
+                  class="grid size-10 place-items-center rounded-lg border border-surface-200 text-xl hover:bg-surface-100 focus-visible:outline-2 focus-visible:outline-primary dark:border-surface-700 dark:hover:bg-surface-800"
+                  [attr.aria-label]="'Insertar emoji ' + emoji"
+                  [title]="'Insertar emoji ' + emoji"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="insertEmoji(emoji, messageInput)"
+                >
+                  {{ emoji }}
+                </button>
+              }
+            </div>
+          }
+          <p class="m-0 text-xs text-muted-color">
+            Formato de WhatsApp: *negrita*, _cursiva_, ~tachado~ y ```monoespaciado```.
+          </p>
           <textarea
             id="bulk-message"
-            rows="6"
+            #messageInput
+            rows="8"
             [formField]="campaignForm.message"
             [attr.aria-invalid]="
-              campaignForm.message().touched() && campaignForm.message().invalid()
-                ? 'true'
-                : null
+              campaignForm.message().touched() && campaignForm.message().invalid() ? 'true' : null
             "
             [attr.aria-describedby]="
               campaignForm.message().touched() && campaignForm.message().invalid()
@@ -167,374 +379,172 @@
                 : null
             "
             placeholder="Hola {nombre}, tenemos novedades para ti..."
-            class="w-full resize-y rounded-lg border border-surface-300 bg-surface-0 p-3 text-color outline-none placeholder:text-muted-color focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800"
+            class="min-h-48 w-full resize-y rounded-lg border border-surface-300 bg-surface-0 p-3 text-color outline-none placeholder:text-muted-color focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800"
           ></textarea>
           @if (campaignForm.message().touched() && campaignForm.message().invalid()) {
             @for (error of campaignForm.message().errors(); track error.kind) {
-              <p
-                id="bulk-message-error"
-                class="text-sm text-red-600 dark:text-red-400"
-                role="alert"
-              >
+              <p-message id="bulk-message-error" severity="error" size="small" variant="simple">
                 {{ error.message }}
-              </p>
+              </p-message>
             }
           }
         </div>
 
-        <fieldset class="grid content-start gap-3">
-          <legend class="mb-1 text-sm font-semibold text-color">Ritmo de envío</legend>
-          <label for="delay-between" class="text-xs text-color-secondary">
-            Pausa entre mensajes (ms)
-          </label>
-          <input
-            id="delay-between"
-            type="number"
-            [formField]="campaignForm.delayBetweenMessagesMs"
-            class="min-h-10 rounded-lg border border-surface-300 bg-surface-0 px-3 text-color outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800"
-          />
-          @if (
-            campaignForm.delayBetweenMessagesMs().touched() &&
-            campaignForm.delayBetweenMessagesMs().invalid()
-          ) {
-            @for (
-              error of campaignForm.delayBetweenMessagesMs().errors();
-              track error.kind
-            ) {
-              <p class="text-xs text-red-600 dark:text-red-400" role="alert">
-                {{ error.message }}
+        <aside
+          class="grid content-start gap-3 rounded-xl border border-surface-200 bg-surface-50 p-4 dark:border-surface-700 dark:bg-surface-800 xl:sticky xl:top-6"
+          aria-label="Vista previa del mensaje"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="m-0 text-sm font-semibold">Vista previa</h3>
+            <span class="text-xs text-muted-color">Contacto de ejemplo</span>
+          </div>
+          <div class="min-h-40 rounded-xl bg-[#0b141a] p-4 text-sm text-white">
+            <div class="max-w-[90%] rounded-xl rounded-tl-sm bg-[#202c33] p-3">
+              <p class="m-0 whitespace-pre-wrap break-words">
+                {{ previewMessage() || 'Tu mensaje aparecerá aquí mientras lo escribes.' }}
               </p>
-            }
+              <span class="mt-1 block text-right text-[10px] text-white/50">12:00</span>
+            </div>
+          </div>
+          @if (recipients().length > 0) {
+            <p class="m-0 flex items-center gap-1 text-xs text-muted-color">
+              <svg data-p-icon="user" class="size-3"></svg>
+              Vista previa con: {{ formatPhone(recipients()[0].phone) }}
+            </p>
           }
-
-          <label for="batch-size" class="text-xs text-color-secondary">
-            Mensajes por lote
-          </label>
-          <input
-            id="batch-size"
-            type="number"
-            [formField]="campaignForm.batchSize"
-            class="min-h-10 rounded-lg border border-surface-300 bg-surface-0 px-3 text-color outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800"
-          />
-          @if (campaignForm.batchSize().touched() && campaignForm.batchSize().invalid()) {
-            @for (error of campaignForm.batchSize().errors(); track error.kind) {
-              <p class="text-xs text-red-600 dark:text-red-400" role="alert">
-                {{ error.message }}
-              </p>
-            }
-          }
-
-          <label for="long-pause" class="text-xs text-color-secondary">
-            Pausa larga (ms)
-          </label>
-          <input
-            id="long-pause"
-            type="number"
-            [formField]="campaignForm.longPauseMs"
-            class="min-h-10 rounded-lg border border-surface-300 bg-surface-0 px-3 text-color outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800"
-          />
-          @if (campaignForm.longPauseMs().touched() && campaignForm.longPauseMs().invalid()) {
-            @for (error of campaignForm.longPauseMs().errors(); track error.kind) {
-              <p class="text-xs text-red-600 dark:text-red-400" role="alert">
-                {{ error.message }}
-              </p>
-            }
-          }
-
-          <label for="verify-delay" class="text-xs text-color-secondary">
-            Pausa entre verificaciones (ms)
-          </label>
-          <input
-            id="verify-delay"
-            type="number"
-            [formField]="campaignForm.verifyDelayMs"
-            class="min-h-10 rounded-lg border border-surface-300 bg-surface-0 px-3 text-color outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800"
-          />
-          @if (
-            campaignForm.verifyDelayMs().touched() &&
-            campaignForm.verifyDelayMs().invalid()
-          ) {
-            @for (
-              error of campaignForm.verifyDelayMs().errors();
-              track error.kind
-            ) {
-              <p class="text-xs text-red-600 dark:text-red-400" role="alert">
-                {{ error.message }}
-              </p>
-            }
-          }
-        </fieldset>
+        </aside>
       </div>
 
-      <div>
+      <!-- 4. RITMO DE ENVÍO -->
+      <fieldset class="grid gap-4 rounded-xl border border-surface-200 p-5 dark:border-surface-700">
+        <legend class="flex items-center gap-3 px-1 text-sm font-semibold">
+          <span
+            class="grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-contrast"
+            >4</span
+          >
+          Ritmo de envío
+        </legend>
+        <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div class="grid content-start gap-1.5">
+            <label for="delay-between" class="text-sm font-medium">Pausa entre mensajes</label>
+            <p-inputgroup>
+              <input
+                id="delay-between"
+                pInputText
+                type="number"
+                step="any"
+                [formField]="campaignForm.delayBetweenMessagesMinutes"
+              />
+              <p-inputgroup-addon>min</p-inputgroup-addon>
+            </p-inputgroup>
+            <small class="text-muted-color">Espera entre cada envío.</small>
+            @if (
+              campaignForm.delayBetweenMessagesMinutes().touched() &&
+              campaignForm.delayBetweenMessagesMinutes().invalid()
+            ) {
+              @for (
+                error of campaignForm.delayBetweenMessagesMinutes().errors();
+                track error.kind
+              ) {
+                <p-message severity="error" size="small" variant="simple">{{
+                  error.message
+                }}</p-message>
+              }
+            }
+          </div>
+
+          <div class="grid content-start gap-1.5">
+            <label for="batch-size" class="text-sm font-medium">Mensajes por lote</label>
+            <p-inputgroup>
+              <input
+                id="batch-size"
+                pInputText
+                type="number"
+                step="1"
+                [formField]="campaignForm.batchSize"
+              />
+              <p-inputgroup-addon>msj</p-inputgroup-addon>
+            </p-inputgroup>
+            <small class="text-muted-color">Cantidad antes de la pausa larga.</small>
+            @if (campaignForm.batchSize().touched() && campaignForm.batchSize().invalid()) {
+              @for (error of campaignForm.batchSize().errors(); track error.kind) {
+                <p-message severity="error" size="small" variant="simple">{{
+                  error.message
+                }}</p-message>
+              }
+            }
+          </div>
+
+          <div class="grid content-start gap-1.5">
+            <label for="long-pause" class="text-sm font-medium">Pausa larga</label>
+            <p-inputgroup>
+              <input
+                id="long-pause"
+                pInputText
+                type="number"
+                step="any"
+                [formField]="campaignForm.longPauseMinutes"
+              />
+              <p-inputgroup-addon>min</p-inputgroup-addon>
+            </p-inputgroup>
+            <small class="text-muted-color">Descanso entre lotes.</small>
+            @if (
+              campaignForm.longPauseMinutes().touched() && campaignForm.longPauseMinutes().invalid()
+            ) {
+              @for (error of campaignForm.longPauseMinutes().errors(); track error.kind) {
+                <p-message severity="error" size="small" variant="simple">{{
+                  error.message
+                }}</p-message>
+              }
+            }
+          </div>
+
+          <div class="grid content-start gap-1.5">
+            <label for="verify-delay" class="text-sm font-medium">Pausa entre verificaciones</label>
+            <p-inputgroup>
+              <input
+                id="verify-delay"
+                pInputText
+                type="number"
+                step="any"
+                [formField]="campaignForm.verifyDelayMinutes"
+              />
+              <p-inputgroup-addon>min</p-inputgroup-addon>
+            </p-inputgroup>
+            <small class="text-muted-color">Entre cada verificación de número.</small>
+            @if (
+              campaignForm.verifyDelayMinutes().touched() &&
+              campaignForm.verifyDelayMinutes().invalid()
+            ) {
+              @for (error of campaignForm.verifyDelayMinutes().errors(); track error.kind) {
+                <p-message severity="error" size="small" variant="simple">{{
+                  error.message
+                }}</p-message>
+              }
+            }
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- ENVIAR -->
+      <div
+        class="flex flex-wrap items-center justify-between gap-3 border-t border-surface-200 pt-5 dark:border-surface-800"
+      >
+        <p class="m-0 flex items-center gap-2 text-sm text-muted-color">
+          <svg data-p-icon="info-circle" class="size-4"></svg>
+          Revisa el mensaje y las sesiones antes de iniciar.
+        </p>
         <button
-          class="min-h-12 rounded-lg bg-primary px-6 font-semibold text-primary-contrast transition-colors hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-70"
+          pButton
           type="submit"
+          size="large"
+          [loading]="isStarting()"
           [disabled]="isStarting() || isReadingFile()"
         >
+          <svg data-p-icon="send"></svg>
           {{ isStarting() ? 'Iniciando envío...' : 'Iniciar envío masivo' }}
         </button>
       </div>
     </form>
-  </section>
-
-  @if (selectedBatchId()) {
-    <section
-      class="grid gap-5 rounded-xl border border-surface-200 bg-surface-0 p-5 shadow-sm dark:border-surface-800 dark:bg-surface-900 sm:p-6"
-      aria-labelledby="batch-progress-title"
-      aria-live="polite"
-    >
-      <div>
-        <h2 id="batch-progress-title" class="m-0 text-xl font-semibold">
-          Progreso del lote
-        </h2>
-        <p class="mb-0 mt-1 break-all font-mono text-xs text-color-secondary">
-          {{ selectedBatchId() }}
-        </p>
-      </div>
-
-      @if (statusError(); as error) {
-        <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
-          {{ error }}
-        </p>
-      } @else if (batchStatus(); as status) {
-        <div class="grid gap-4">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <span [class]="getBulkStatusClasses(status.status)">
-              {{ getBulkStatusLabel(status.status) }}
-            </span>
-            @if (isPolling()) {
-              <span class="text-xs text-color-secondary">
-                Actualizando cada 3 segundos
-              </span>
-            }
-          </div>
-          <div
-            class="h-3 overflow-hidden rounded-full bg-surface-200 dark:bg-surface-700"
-            role="progressbar"
-            [attr.aria-label]="'Progreso del lote: ' + status.progress + '%'"
-            [attr.aria-valuenow]="status.progress"
-            aria-valuemin="0"
-            aria-valuemax="100"
-          >
-            <div
-              class="h-full rounded-full bg-primary transition-[width]"
-              [style.width.%]="status.progress"
-            ></div>
-          </div>
-          <dl class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
-            <div><dt class="text-color-secondary">Total</dt><dd class="m-0 font-semibold">{{ status.total }}</dd></div>
-            <div><dt class="text-color-secondary">Procesados</dt><dd class="m-0 font-semibold">{{ status.processed }}</dd></div>
-            <div><dt class="text-color-secondary">Enviados</dt><dd class="m-0 font-semibold">{{ status.sent }}</dd></div>
-            <div><dt class="text-color-secondary">Fallidos</dt><dd class="m-0 font-semibold">{{ status.failed }}</dd></div>
-            <div><dt class="text-color-secondary">Inválidos</dt><dd class="m-0 font-semibold">{{ status.invalid }}</dd></div>
-          </dl>
-        </div>
-      } @else {
-        <p class="m-0 text-sm text-color-secondary">Cargando progreso...</p>
-      }
-
-      @if (detailError(); as error) {
-        <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
-          {{ error }}
-        </p>
-      } @else if (batchDetail(); as detail) {
-        <details class="rounded-lg border border-surface-200 p-4 dark:border-surface-700">
-          <summary class="cursor-pointer font-semibold">Configuración del lote</summary>
-          <div class="mt-3 grid gap-2 text-sm">
-            <p class="m-0"><span class="text-color-secondary">Sesiones:</span> {{ detail.config.sessionIds.length }}</p>
-            <p class="m-0"><span class="text-color-secondary">Destinatarios:</span> {{ detail.config.recipients.length }}</p>
-            <p class="m-0"><span class="text-color-secondary">Mensaje:</span></p>
-            <pre class="m-0 whitespace-pre-wrap rounded bg-surface-50 p-3 font-sans dark:bg-surface-800">{{ detail.config.message }}</pre>
-          </div>
-        </details>
-      }
-
-      <div class="grid gap-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <h3 class="m-0 text-lg font-semibold">Registros de mensajes</h3>
-          <label class="flex items-center gap-2 text-sm">
-            <span>Estado</span>
-            <select
-              class="min-h-10 rounded-lg border border-surface-300 bg-surface-0 px-3 text-color dark:border-surface-600 dark:bg-surface-800"
-              [value]="logStatusFilter() ?? ''"
-              (change)="changeLogStatus($event)"
-            >
-              <option value="">Todos</option>
-              <option value="SENT">Enviados</option>
-              <option value="FAILED">Fallidos</option>
-              <option value="INVALID">Inválidos</option>
-            </select>
-          </label>
-        </div>
-
-        @if (logsError(); as error) {
-          <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
-            {{ error }}
-          </p>
-        } @else if (logsResource.isLoading() && logs().length === 0) {
-          <p class="m-0 text-sm text-color-secondary" aria-live="polite">
-            Cargando registros...
-          </p>
-        } @else if (logs().length === 0) {
-          <p class="m-0 text-sm text-color-secondary">No hay registros para este filtro.</p>
-        } @else {
-          <div class="overflow-x-auto">
-            <table class="w-full min-w-[42rem] border-collapse text-left text-sm">
-              <thead>
-                <tr class="border-b border-surface-300 dark:border-surface-700">
-                  <th class="px-3 py-2">Teléfono</th>
-                  <th class="px-3 py-2">Sesión</th>
-                  <th class="px-3 py-2">Estado</th>
-                  <th class="px-3 py-2">Error</th>
-                  <th class="px-3 py-2">Fecha</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (log of logs(); track log.id) {
-                  <tr class="border-b border-surface-200 last:border-0 dark:border-surface-700">
-                    <td class="px-3 py-2">{{ log.phoneNumber }}</td>
-                    <td class="max-w-40 truncate px-3 py-2">{{ log.sessionId }}</td>
-                    <td class="px-3 py-2">{{ getBulkStatusLabel(log.status) }}</td>
-                    <td class="max-w-64 truncate px-3 py-2" [title]="log.errorMessage ?? ''">
-                      {{ log.errorMessage || '—' }}
-                    </td>
-                    <td class="whitespace-nowrap px-3 py-2">{{ formatDate(log.sentAt) }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-          @if (logsPagination(); as pagination) {
-            <div class="flex items-center justify-between gap-3 text-sm">
-              <span class="text-color-secondary">
-                Página {{ pagination.page }} de {{ pagination.totalPages }}
-              </span>
-              <div class="flex gap-2">
-                <button
-                  class="min-h-9 rounded-lg border border-surface-300 px-3 disabled:opacity-50 dark:border-surface-600"
-                  type="button"
-                  [disabled]="pagination.page <= 1"
-                  (click)="changeLogsPage(-1)"
-                >
-                  Anterior
-                </button>
-                <button
-                  class="min-h-9 rounded-lg border border-surface-300 px-3 disabled:opacity-50 dark:border-surface-600"
-                  type="button"
-                  [disabled]="pagination.page >= pagination.totalPages"
-                  (click)="changeLogsPage(1)"
-                >
-                  Siguiente
-                </button>
-              </div>
-            </div>
-          }
-        }
-      </div>
-    </section>
-  }
-
-  <section
-    class="grid gap-4 rounded-xl border border-surface-200 bg-surface-0 p-5 shadow-sm dark:border-surface-800 dark:bg-surface-900 sm:p-6"
-    aria-labelledby="bulk-history-title"
-  >
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h2 id="bulk-history-title" class="m-0 text-xl font-semibold">
-          Historial de envíos
-        </h2>
-        <p class="mb-0 mt-1 text-sm text-color-secondary">
-          Consulta el progreso y los resultados de cada lote.
-        </p>
-      </div>
-      <button
-        class="min-h-10 rounded-lg border border-surface-300 px-4 text-sm font-semibold text-color hover:bg-surface-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-surface-600 dark:hover:bg-surface-800"
-        type="button"
-        (click)="historyResource.reload()"
-      >
-        Actualizar
-      </button>
-    </div>
-
-    @if (historyError(); as error) {
-      <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
-        {{ error }}
-      </p>
-    } @else if (historyResource.isLoading() && !history()) {
-      <p class="m-0 text-sm text-color-secondary" aria-live="polite">
-        Cargando historial...
-      </p>
-    } @else if (history(); as historyData) {
-      @if (historyData.items.length === 0) {
-        <p class="m-0 text-sm text-color-secondary">Todavía no hay envíos masivos.</p>
-      } @else {
-        <div class="overflow-x-auto">
-          <table class="w-full min-w-[48rem] border-collapse text-left text-sm">
-            <thead>
-              <tr class="border-b border-surface-300 dark:border-surface-700">
-                <th class="px-3 py-3">Lote</th>
-                <th class="px-3 py-3">Estado</th>
-                <th class="px-3 py-3">Progreso</th>
-                <th class="px-3 py-3">Enviados</th>
-                <th class="px-3 py-3">Fallidos</th>
-                <th class="px-3 py-3">Creado</th>
-                <th class="px-3 py-3"><span class="sr-only">Acciones</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (batch of historyData.items; track batch.id) {
-                <tr class="border-b border-surface-200 last:border-0 dark:border-surface-700">
-                  <td class="max-w-48 truncate px-3 py-3 font-mono text-xs">{{ batch.id }}</td>
-                  <td class="px-3 py-3">
-                    <span [class]="getBulkStatusClasses(batch.status)">
-                      {{ getBulkStatusLabel(batch.status) }}
-                    </span>
-                  </td>
-                  <td class="px-3 py-3">{{ batch.progress }}%</td>
-                  <td class="px-3 py-3">{{ batch.sent }} / {{ batch.total }}</td>
-                  <td class="px-3 py-3">{{ batch.failed }}</td>
-                  <td class="whitespace-nowrap px-3 py-3">{{ formatDate(batch.createdAt) }}</td>
-                  <td class="px-3 py-3">
-                    <button
-                      class="min-h-9 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-contrast hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                      type="button"
-                      [attr.aria-label]="'Ver lote ' + batch.id"
-                      (click)="selectBatch(batch)"
-                    >
-                      Ver detalle
-                    </button>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-
-      <div class="flex items-center justify-between gap-3 text-sm">
-        <span class="text-color-secondary">
-          Página {{ historyData.pagination.page }} de {{ historyData.pagination.totalPages }}
-        </span>
-        <div class="flex gap-2">
-          <button
-            class="min-h-9 rounded-lg border border-surface-300 px-3 disabled:opacity-50 dark:border-surface-600"
-            type="button"
-            [disabled]="historyData.pagination.page <= 1"
-            (click)="changeHistoryPage(-1)"
-          >
-            Anterior
-          </button>
-          <button
-            class="min-h-9 rounded-lg border border-surface-300 px-3 disabled:opacity-50 dark:border-surface-600"
-            type="button"
-            [disabled]="historyData.pagination.page >= historyData.pagination.totalPages"
-            (click)="changeHistoryPage(1)"
-          >
-            Siguiente
-          </button>
-        </div>
-      </div>
-    }
   </section>
 </main>

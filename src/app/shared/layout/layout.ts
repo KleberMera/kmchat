@@ -1,11 +1,17 @@
 import { NgComponentOutlet } from '@angular/common';
 import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import type { Type } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import {
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { SidebarModule } from 'primeng/sidebar';
 import { Comment } from '@primeicons/angular/comment';
 import { Home } from '@primeicons/angular/home';
+import { List } from '@primeicons/angular/list';
 import { Megaphone } from '@primeicons/angular/megaphone';
 import { Sidebar as SidebarIcon } from '@primeicons/angular/sidebar';
 
@@ -35,6 +41,7 @@ export class Layout implements OnInit, OnDestroy {
     { label: 'Resumen', path: '/dashboard', icon: Home },
     { label: 'Sesiones', path: '/sesiones', icon: Comment },
     { label: 'Envío masivo', path: '/masiva', icon: Megaphone },
+    { label: 'Lotes', path: '/lotes', icon: List },
   ];
   readonly activeItem = signal(this.menuItems[0]);
   readonly isMobile = signal(false);
@@ -67,7 +74,10 @@ export class Layout implements OnInit, OnDestroy {
   updateActiveItem(): void {
     const activeItem = this.menuItems.find((item) =>
       this.router.isActive(item.path, {
-        paths: 'exact',
+        paths:
+          item.path === '/masiva' || item.path === '/lotes'
+            ? 'subset'
+            : 'exact',
         queryParams: 'ignored',
         matrixParams: 'ignored',
         fragment: 'ignored',
