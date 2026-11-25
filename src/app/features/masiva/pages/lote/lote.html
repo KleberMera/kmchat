@@ -92,20 +92,34 @@
   >
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h2 id="batch-logs-title" class="m-0 text-xl font-semibold">Registros de mensajes</h2>
-      <label class="flex items-center gap-2 text-sm">
-        <span>Estado</span>
-        <select
-          class="min-h-10 rounded-lg border border-surface-300 bg-surface-0 px-3 text-color dark:border-surface-600 dark:bg-surface-800"
-          [value]="logStatusFilter() ?? ''"
-          (change)="changeLogStatus($event)"
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          class="min-h-10 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-contrast transition-colors hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
+          type="button"
+          [disabled]="!exportEnabled()"
+          (click)="exportBatchExcel()"
         >
-          <option value="">Todos</option>
-          <option value="SENT">Enviados</option>
-          <option value="FAILED">Fallidos</option>
-          <option value="INVALID">Inválidos</option>
-        </select>
-      </label>
+          {{ isExporting() ? 'Exportando...' : 'Exportar Excel' }}
+        </button>
+        <label class="flex items-center gap-2 text-sm">
+          <span>Estado</span>
+          <select
+            class="min-h-10 rounded-lg border border-surface-300 bg-surface-0 px-3 text-color dark:border-surface-600 dark:bg-surface-800"
+            [value]="logStatusFilter() ?? ''"
+            (change)="changeLogStatus($event)"
+          >
+            <option value="">Todos</option>
+            <option value="SENT">Enviados</option>
+            <option value="FAILED">Fallidos</option>
+            <option value="INVALID">Inválidos</option>
+          </select>
+        </label>
+      </div>
     </div>
+
+    @if (exportError(); as error) {
+      <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">{{ error }}</p>
+    }
 
     @if (logsError(); as error) {
       <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
@@ -119,11 +133,12 @@
       <p class="m-0 text-sm text-color-secondary">No hay registros para este filtro.</p>
     } @else {
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[42rem] border-collapse text-left text-sm">
+        <table class="w-full min-w-[56rem] border-collapse text-left text-sm">
           <thead>
             <tr class="border-b border-surface-300 dark:border-surface-700">
               <th class="px-3 py-2">Teléfono</th>
-              <th class="px-3 py-2">Sesión</th>
+              <th class="px-3 py-2">ID de sesión</th>
+              <th class="px-3 py-2">Teléfono de sesión</th>
               <th class="px-3 py-2">Estado</th>
               <th class="px-3 py-2">Error</th>
               <th class="px-3 py-2">Fecha</th>
@@ -134,6 +149,9 @@
               <tr class="border-b border-surface-200 last:border-0 dark:border-surface-700">
                 <td class="px-3 py-2">{{ formatPhone(log.phoneNumber) }}</td>
                 <td class="max-w-40 truncate px-3 py-2">{{ log.sessionId }}</td>
+                <td class="whitespace-nowrap px-3 py-2">
+                  {{ formatPhone(log.sessionPhoneNumber) || '—' }}
+                </td>
                 <td class="px-3 py-2">{{ getBulkStatusLabel(log.status) }}</td>
                 <td class="max-w-64 truncate px-3 py-2" [title]="log.errorMessage ?? ''">
                   {{ log.errorMessage || '—' }}
@@ -148,6 +166,7 @@
         <div class="flex items-center justify-between gap-3 text-sm">
           <span class="text-color-secondary">
             Página {{ pagination.page }} de {{ pagination.totalPages }}
+            · {{ pagination.total }} registros
           </span>
           <div class="flex gap-2">
             <button

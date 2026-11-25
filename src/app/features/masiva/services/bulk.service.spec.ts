@@ -3,6 +3,7 @@ import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../../environments/environment';
 import type { BulkStartRequest } from '../models/bulk.model';
@@ -22,6 +23,39 @@ describe('BulkService', () => {
 
   afterEach(() => {
     httpTestingController.verify();
+  });
+
+  it('loads all logs without server-side pagination query parameters', () => {
+    const batchId = signal<string | null>('batch-id');
+    const resource = TestBed.runInInjectionContext(() => service.getLogs(batchId));
+    TestBed.flushEffects();
+
+    const request = httpTestingController.expectOne(
+      `${environment.apiUrl}/bulk/batch-id/logs`,
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush({
+      data: {
+        items: [
+          {
+            id: 'log-id',
+            batchId: 'batch-id',
+            phoneNumber: '593961137973',
+            sessionId: 'session-id',
+            sessionPhoneNumber: null,
+            status: 'SENT',
+            errorMessage: null,
+            sentAt: null,
+          },
+        ],
+        pagination: { page: 1, limit: 50, total: 1, totalPages: 1 },
+      },
+      message: 'OK',
+      status: 200,
+    });
+    TestBed.flushEffects();
+
+    expect(resource.value()?.data.items).toHaveLength(1);
   });
 
   it('starts a bulk batch with the selected sessions, recipients, and settings', () => {

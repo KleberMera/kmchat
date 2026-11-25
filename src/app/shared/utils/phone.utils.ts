@@ -30,3 +30,25 @@ export function formatEcuadorianPhone(phone: string | null | undefined): string 
 
   return phone;
 }
+
+export function formatEcuadorianPhoneForExport(phone: string | null | undefined): string {
+  if (!phone) {
+    return '';
+  }
+
+  const digits = phone.replace(/\D/g, '');
+  const nationalNumber = digits.startsWith('593')
+    ? digits.slice(3)
+    : digits.startsWith('0')
+      ? digits.slice(1)
+      : digits;
+
+  if (
+    (nationalNumber.length === 9 && nationalNumber.startsWith('9')) ||
+    (nationalNumber.length === 8 && /^[2-7]/.test(nationalNumber))
+  ) {
+    return `0${nationalNumber}`;
+  }
+
+  return phone;
+}

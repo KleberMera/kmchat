@@ -54,26 +54,12 @@ export class BulkService {
 
   getLogs(
     batchId: Signal<string | null>,
-    status: Signal<string | null>,
-    page: Signal<number>,
-    limit = 50,
   ): HttpResourceRef<ApiResponse<BulkLogsData> | undefined> {
     return httpResource<ApiResponse<BulkLogsData>>(() => {
       const currentBatchId = batchId();
-      if (!currentBatchId) {
-        return undefined;
-      }
-
-      const params = new URLSearchParams({
-        page: String(page()),
-        limit: String(limit),
-      });
-      const currentStatus = status();
-      if (currentStatus) {
-        params.set('status', currentStatus);
-      }
-
-      return `${this.apiUrl}/${encodeURIComponent(currentBatchId)}/logs?${params}`;
+      return currentBatchId
+        ? `${this.apiUrl}/${encodeURIComponent(currentBatchId)}/logs`
+        : undefined;
     });
   }
 

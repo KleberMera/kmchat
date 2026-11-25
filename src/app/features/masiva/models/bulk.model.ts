@@ -53,8 +53,10 @@ export interface BulkHistoryData {
 
 export interface BulkMessageLog {
   id: string;
+  batchId: string;
   phoneNumber: string;
   sessionId: string;
+  sessionPhoneNumber: string | null;
   status: string;
   errorMessage: string | null;
   sentAt: string | null;
@@ -62,5 +64,5 @@ export interface BulkMessageLog {
 
 export interface BulkLogsData {
   items: BulkMessageLog[];
-  pagination: BulkPagination;
+  pagination?: BulkPagination;
 }
