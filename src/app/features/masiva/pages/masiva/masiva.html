@@ -1,0 +1,538 @@
+<main class="mx-auto grid w-full max-w-7xl gap-6 p-4 sm:p-6 lg:p-9">
+  <header>
+    <p class="mb-1 text-xs font-bold tracking-[0.12em] text-primary-700 dark:text-primary-300">
+      CAMPAÑAS
+    </p>
+    <h1 class="m-0 text-3xl font-bold tracking-tight">Envío masivo</h1>
+    <p class="mb-0 mt-2 text-sm text-color-secondary">
+      Selecciona sesiones conectadas, carga destinatarios desde Excel y monitorea el lote.
+    </p>
+  </header>
+
+  <section
+    class="rounded-xl border border-surface-200 bg-surface-0 p-5 shadow-sm dark:border-surface-800 dark:bg-surface-900 sm:p-6"
+    aria-labelledby="bulk-start-title"
+  >
+    <h2 id="bulk-start-title" class="m-0 text-xl font-semibold">Configurar envío</h2>
+    <p class="mb-5 mt-2 text-sm text-color-secondary">
+      Los encabezados de Excel estarán disponibles como placeholders, por ejemplo
+      <code>{{ '{nombre}' }}</code>.
+    </p>
+
+    <form class="grid gap-6" (submit)="startBulk($event)" novalidate>
+      <fieldset class="grid gap-3">
+        <legend class="mb-1 text-sm font-semibold text-color">
+          Sesiones conectadas
+        </legend>
+        <p class="m-0 text-sm text-color-secondary">
+          Solo se pueden seleccionar sesiones activas y con estado Conectada.
+        </p>
+
+        @if (sessionsResource.isLoading()) {
+          <p class="m-0 text-sm text-color-secondary" aria-live="polite">
+            Cargando sesiones...
+          </p>
+        }
+        @if (sessionsError(); as error) {
+          <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
+            {{ error }}
+          </p>
+        } @else if (
+          sessionsResource.hasValue() && readySessions().length === 0
+        ) {
+          <p class="m-0 text-sm text-color-secondary">
+            No hay sesiones activas y conectadas disponibles.
+          </p>
+        } @else {
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            @for (session of readySessions(); track session.id) {
+              <label
+                class="flex cursor-pointer items-start gap-3 rounded-lg border border-surface-200 p-4 transition-colors hover:border-primary dark:border-surface-700"
+                [for]="'bulk-session-' + session.id"
+              >
+                <input
+                  class="mt-1 size-4 accent-primary"
+                  type="checkbox"
+                  [id]="'bulk-session-' + session.id"
+                  [checked]="selectedSessionIds().includes(session.sessionId)"
+                  (change)="toggleSessionSelection(session.sessionId, $event)"
+                />
+                <span class="grid min-w-0 gap-1">
+                  <span class="truncate font-semibold">{{ session.name }}</span>
+                  <span class="text-xs text-color-secondary">
+                    {{ session.phoneNumber || 'Sin teléfono asignado' }}
+                  </span>
+                </span>
+              </label>
+            }
+          </div>
+        }
+        <p class="m-0 text-xs text-color-secondary" aria-live="polite">
+          Sesiones seleccionadas: {{ selectedSessionIds().length }}
+        </p>
+      </fieldset>
+
+      <fieldset class="grid gap-3">
+        <legend class="text-sm font-semibold text-color">Destinatarios desde Excel</legend>
+        <p class="m-0 text-sm text-color-secondary">
+          Sube un archivo .xlsx o .xls. La primera hoja debe tener una fila de encabezados e incluir
+          la columna <code>phone</code>. Las demás columnas se enviarán como campos dinámicos.
+          Guarda los teléfonos como texto en Excel para conservar ceros iniciales.
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <label
+            class="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-surface-300 px-4 font-semibold text-color transition-colors hover:bg-surface-100 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary dark:border-surface-600 dark:hover:bg-surface-800"
+          >
+            <span>{{ isReadingFile() ? 'Leyendo Excel...' : 'Seleccionar Excel' }}</span>
+            <input
+              class="sr-only"
+              type="file"
+              accept=".xlsx,.xls"
+              [disabled]="isReadingFile()"
+              (change)="loadRecipients($event)"
+            />
+          </label>
+          @if (recipientFileName(); as fileName) {
+            <span class="text-sm text-color-secondary">{{ fileName }}</span>
+            <button
+              class="min-h-9 rounded-lg px-3 text-sm font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 dark:text-red-300 dark:hover:bg-red-950/30"
+              type="button"
+              (click)="clearRecipients()"
+            >
+              Quitar archivo
+            </button>
+          }
+        </div>
+        @if (recipientFileError(); as error) {
+          <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
+            {{ error }}
+          </p>
+        }
+        @if (recipients().length > 0) {
+          <div class="grid gap-3 rounded-lg bg-surface-50 p-4 dark:bg-surface-800">
+            <p class="m-0 text-sm font-semibold">
+              {{ recipients().length }} destinatarios listos
+            </p>
+            <p class="m-0 text-xs text-color-secondary">
+              Placeholders disponibles:
+              @for (header of recipientHeaders(); track header) {
+                <code class="mr-2">{{ '{' + header + '}' }}</code>
+              }
+            </p>
+            <div class="overflow-x-auto">
+              <table class="w-full min-w-max border-collapse text-left text-xs">
+                <thead>
+                  <tr class="border-b border-surface-300 dark:border-surface-700">
+                    @for (header of previewHeaders(); track header) {
+                      <th class="px-3 py-2 font-semibold">{{ header }}</th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (recipient of previewRecipients(); track $index) {
+                    <tr class="border-b border-surface-200 last:border-0 dark:border-surface-700">
+                      @for (header of previewHeaders(); track header) {
+                        <td class="max-w-56 truncate px-3 py-2">
+                          {{ recipient[header] }}
+                        </td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+      </fieldset>
+
+      <div class="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+        <div class="grid content-start gap-3">
+          <label for="bulk-message" class="text-sm font-semibold text-color">
+            Mensaje
+          </label>
+          <textarea
+            id="bulk-message"
+            rows="6"
+            [formField]="campaignForm.message"
+            [attr.aria-invalid]="
+              campaignForm.message().touched() && campaignForm.message().invalid()
+                ? 'true'
+                : null
+            "
+            [attr.aria-describedby]="
+              campaignForm.message().touched() && campaignForm.message().invalid()
+                ? 'bulk-message-error'
+                : null
+            "
+            placeholder="Hola {nombre}, tenemos novedades para ti..."
+            class="w-full resize-y rounded-lg border border-surface-300 bg-surface-0 p-3 text-color outline-none placeholder:text-muted-color focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800"
+          ></textarea>
+          @if (campaignForm.message().touched() && campaignForm.message().invalid()) {
+            @for (error of campaignForm.message().errors(); track error.kind) {
+              <p
+                id="bulk-message-error"
+                class="text-sm text-red-600 dark:text-red-400"
+                role="alert"
+              >
+                {{ error.message }}
+              </p>
+            }
+          }
+        </div>
+
+        <fieldset class="grid content-start gap-3">
+          <legend class="mb-1 text-sm font-semibold text-color">Ritmo de envío</legend>
+          <label for="delay-between" class="text-xs text-color-secondary">
+            Pausa entre mensajes (ms)
+          </label>
+          <input
+            id="delay-between"
+            type="number"
+            [formField]="campaignForm.delayBetweenMessagesMs"
+            class="min-h-10 rounded-lg border border-surface-300 bg-surface-0 px-3 text-color outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800"
+          />
+          @if (
+            campaignForm.delayBetweenMessagesMs().touched() &&
+            campaignForm.delayBetweenMessagesMs().invalid()
+          ) {
+            @for (
+              error of campaignForm.delayBetweenMessagesMs().errors();
+              track error.kind
+            ) {
+              <p class="text-xs text-red-600 dark:text-red-400" role="alert">
+                {{ error.message }}
+              </p>
+            }
+          }
+
+          <label for="batch-size" class="text-xs text-color-secondary">
+            Mensajes por lote
+          </label>
+          <input
+            id="batch-size"
+            type="number"
+            [formField]="campaignForm.batchSize"
+            class="min-h-10 rounded-lg border border-surface-300 bg-surface-0 px-3 text-color outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800"
+          />
+          @if (campaignForm.batchSize().touched() && campaignForm.batchSize().invalid()) {
+            @for (error of campaignForm.batchSize().errors(); track error.kind) {
+              <p class="text-xs text-red-600 dark:text-red-400" role="alert">
+                {{ error.message }}
+              </p>
+            }
+          }
+
+          <label for="long-pause" class="text-xs text-color-secondary">
+            Pausa larga (ms)
+          </label>
+          <input
+            id="long-pause"
+            type="number"
+            [formField]="campaignForm.longPauseMs"
+            class="min-h-10 rounded-lg border border-surface-300 bg-surface-0 px-3 text-color outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800"
+          />
+          @if (campaignForm.longPauseMs().touched() && campaignForm.longPauseMs().invalid()) {
+            @for (error of campaignForm.longPauseMs().errors(); track error.kind) {
+              <p class="text-xs text-red-600 dark:text-red-400" role="alert">
+                {{ error.message }}
+              </p>
+            }
+          }
+
+          <label for="verify-delay" class="text-xs text-color-secondary">
+            Pausa entre verificaciones (ms)
+          </label>
+          <input
+            id="verify-delay"
+            type="number"
+            [formField]="campaignForm.verifyDelayMs"
+            class="min-h-10 rounded-lg border border-surface-300 bg-surface-0 px-3 text-color outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary-100 dark:border-surface-600 dark:bg-surface-800"
+          />
+          @if (
+            campaignForm.verifyDelayMs().touched() &&
+            campaignForm.verifyDelayMs().invalid()
+          ) {
+            @for (
+              error of campaignForm.verifyDelayMs().errors();
+              track error.kind
+            ) {
+              <p class="text-xs text-red-600 dark:text-red-400" role="alert">
+                {{ error.message }}
+              </p>
+            }
+          }
+        </fieldset>
+      </div>
+
+      <div>
+        <button
+          class="min-h-12 rounded-lg bg-primary px-6 font-semibold text-primary-contrast transition-colors hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-70"
+          type="submit"
+          [disabled]="isStarting() || isReadingFile()"
+        >
+          {{ isStarting() ? 'Iniciando envío...' : 'Iniciar envío masivo' }}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  @if (selectedBatchId()) {
+    <section
+      class="grid gap-5 rounded-xl border border-surface-200 bg-surface-0 p-5 shadow-sm dark:border-surface-800 dark:bg-surface-900 sm:p-6"
+      aria-labelledby="batch-progress-title"
+      aria-live="polite"
+    >
+      <div>
+        <h2 id="batch-progress-title" class="m-0 text-xl font-semibold">
+          Progreso del lote
+        </h2>
+        <p class="mb-0 mt-1 break-all font-mono text-xs text-color-secondary">
+          {{ selectedBatchId() }}
+        </p>
+      </div>
+
+      @if (statusError(); as error) {
+        <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
+          {{ error }}
+        </p>
+      } @else if (batchStatus(); as status) {
+        <div class="grid gap-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <span [class]="getBulkStatusClasses(status.status)">
+              {{ getBulkStatusLabel(status.status) }}
+            </span>
+            @if (isPolling()) {
+              <span class="text-xs text-color-secondary">
+                Actualizando cada 3 segundos
+              </span>
+            }
+          </div>
+          <div
+            class="h-3 overflow-hidden rounded-full bg-surface-200 dark:bg-surface-700"
+            role="progressbar"
+            [attr.aria-label]="'Progreso del lote: ' + status.progress + '%'"
+            [attr.aria-valuenow]="status.progress"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <div
+              class="h-full rounded-full bg-primary transition-[width]"
+              [style.width.%]="status.progress"
+            ></div>
+          </div>
+          <dl class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
+            <div><dt class="text-color-secondary">Total</dt><dd class="m-0 font-semibold">{{ status.total }}</dd></div>
+            <div><dt class="text-color-secondary">Procesados</dt><dd class="m-0 font-semibold">{{ status.processed }}</dd></div>
+            <div><dt class="text-color-secondary">Enviados</dt><dd class="m-0 font-semibold">{{ status.sent }}</dd></div>
+            <div><dt class="text-color-secondary">Fallidos</dt><dd class="m-0 font-semibold">{{ status.failed }}</dd></div>
+            <div><dt class="text-color-secondary">Inválidos</dt><dd class="m-0 font-semibold">{{ status.invalid }}</dd></div>
+          </dl>
+        </div>
+      } @else {
+        <p class="m-0 text-sm text-color-secondary">Cargando progreso...</p>
+      }
+
+      @if (detailError(); as error) {
+        <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
+          {{ error }}
+        </p>
+      } @else if (batchDetail(); as detail) {
+        <details class="rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+          <summary class="cursor-pointer font-semibold">Configuración del lote</summary>
+          <div class="mt-3 grid gap-2 text-sm">
+            <p class="m-0"><span class="text-color-secondary">Sesiones:</span> {{ detail.config.sessionIds.length }}</p>
+            <p class="m-0"><span class="text-color-secondary">Destinatarios:</span> {{ detail.config.recipients.length }}</p>
+            <p class="m-0"><span class="text-color-secondary">Mensaje:</span></p>
+            <pre class="m-0 whitespace-pre-wrap rounded bg-surface-50 p-3 font-sans dark:bg-surface-800">{{ detail.config.message }}</pre>
+          </div>
+        </details>
+      }
+
+      <div class="grid gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h3 class="m-0 text-lg font-semibold">Registros de mensajes</h3>
+          <label class="flex items-center gap-2 text-sm">
+            <span>Estado</span>
+            <select
+              class="min-h-10 rounded-lg border border-surface-300 bg-surface-0 px-3 text-color dark:border-surface-600 dark:bg-surface-800"
+              [value]="logStatusFilter() ?? ''"
+              (change)="changeLogStatus($event)"
+            >
+              <option value="">Todos</option>
+              <option value="SENT">Enviados</option>
+              <option value="FAILED">Fallidos</option>
+              <option value="INVALID">Inválidos</option>
+            </select>
+          </label>
+        </div>
+
+        @if (logsError(); as error) {
+          <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
+            {{ error }}
+          </p>
+        } @else if (logsResource.isLoading() && logs().length === 0) {
+          <p class="m-0 text-sm text-color-secondary" aria-live="polite">
+            Cargando registros...
+          </p>
+        } @else if (logs().length === 0) {
+          <p class="m-0 text-sm text-color-secondary">No hay registros para este filtro.</p>
+        } @else {
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[42rem] border-collapse text-left text-sm">
+              <thead>
+                <tr class="border-b border-surface-300 dark:border-surface-700">
+                  <th class="px-3 py-2">Teléfono</th>
+                  <th class="px-3 py-2">Sesión</th>
+                  <th class="px-3 py-2">Estado</th>
+                  <th class="px-3 py-2">Error</th>
+                  <th class="px-3 py-2">Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (log of logs(); track log.id) {
+                  <tr class="border-b border-surface-200 last:border-0 dark:border-surface-700">
+                    <td class="px-3 py-2">{{ log.phoneNumber }}</td>
+                    <td class="max-w-40 truncate px-3 py-2">{{ log.sessionId }}</td>
+                    <td class="px-3 py-2">{{ getBulkStatusLabel(log.status) }}</td>
+                    <td class="max-w-64 truncate px-3 py-2" [title]="log.errorMessage ?? ''">
+                      {{ log.errorMessage || '—' }}
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-2">{{ formatDate(log.sentAt) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          @if (logsPagination(); as pagination) {
+            <div class="flex items-center justify-between gap-3 text-sm">
+              <span class="text-color-secondary">
+                Página {{ pagination.page }} de {{ pagination.totalPages }}
+              </span>
+              <div class="flex gap-2">
+                <button
+                  class="min-h-9 rounded-lg border border-surface-300 px-3 disabled:opacity-50 dark:border-surface-600"
+                  type="button"
+                  [disabled]="pagination.page <= 1"
+                  (click)="changeLogsPage(-1)"
+                >
+                  Anterior
+                </button>
+                <button
+                  class="min-h-9 rounded-lg border border-surface-300 px-3 disabled:opacity-50 dark:border-surface-600"
+                  type="button"
+                  [disabled]="pagination.page >= pagination.totalPages"
+                  (click)="changeLogsPage(1)"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    </section>
+  }
+
+  <section
+    class="grid gap-4 rounded-xl border border-surface-200 bg-surface-0 p-5 shadow-sm dark:border-surface-800 dark:bg-surface-900 sm:p-6"
+    aria-labelledby="bulk-history-title"
+  >
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 id="bulk-history-title" class="m-0 text-xl font-semibold">
+          Historial de envíos
+        </h2>
+        <p class="mb-0 mt-1 text-sm text-color-secondary">
+          Consulta el progreso y los resultados de cada lote.
+        </p>
+      </div>
+      <button
+        class="min-h-10 rounded-lg border border-surface-300 px-4 text-sm font-semibold text-color hover:bg-surface-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-surface-600 dark:hover:bg-surface-800"
+        type="button"
+        (click)="historyResource.reload()"
+      >
+        Actualizar
+      </button>
+    </div>
+
+    @if (historyError(); as error) {
+      <p class="m-0 text-sm text-red-600 dark:text-red-400" role="alert">
+        {{ error }}
+      </p>
+    } @else if (historyResource.isLoading() && !history()) {
+      <p class="m-0 text-sm text-color-secondary" aria-live="polite">
+        Cargando historial...
+      </p>
+    } @else if (history(); as historyData) {
+      @if (historyData.items.length === 0) {
+        <p class="m-0 text-sm text-color-secondary">Todavía no hay envíos masivos.</p>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[48rem] border-collapse text-left text-sm">
+            <thead>
+              <tr class="border-b border-surface-300 dark:border-surface-700">
+                <th class="px-3 py-3">Lote</th>
+                <th class="px-3 py-3">Estado</th>
+                <th class="px-3 py-3">Progreso</th>
+                <th class="px-3 py-3">Enviados</th>
+                <th class="px-3 py-3">Fallidos</th>
+                <th class="px-3 py-3">Creado</th>
+                <th class="px-3 py-3"><span class="sr-only">Acciones</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (batch of historyData.items; track batch.id) {
+                <tr class="border-b border-surface-200 last:border-0 dark:border-surface-700">
+                  <td class="max-w-48 truncate px-3 py-3 font-mono text-xs">{{ batch.id }}</td>
+                  <td class="px-3 py-3">
+                    <span [class]="getBulkStatusClasses(batch.status)">
+                      {{ getBulkStatusLabel(batch.status) }}
+                    </span>
+                  </td>
+                  <td class="px-3 py-3">{{ batch.progress }}%</td>
+                  <td class="px-3 py-3">{{ batch.sent }} / {{ batch.total }}</td>
+                  <td class="px-3 py-3">{{ batch.failed }}</td>
+                  <td class="whitespace-nowrap px-3 py-3">{{ formatDate(batch.createdAt) }}</td>
+                  <td class="px-3 py-3">
+                    <button
+                      class="min-h-9 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-contrast hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      type="button"
+                      [attr.aria-label]="'Ver lote ' + batch.id"
+                      (click)="selectBatch(batch)"
+                    >
+                      Ver detalle
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <div class="flex items-center justify-between gap-3 text-sm">
+        <span class="text-color-secondary">
+          Página {{ historyData.pagination.page }} de {{ historyData.pagination.totalPages }}
+        </span>
+        <div class="flex gap-2">
+          <button
+            class="min-h-9 rounded-lg border border-surface-300 px-3 disabled:opacity-50 dark:border-surface-600"
+            type="button"
+            [disabled]="historyData.pagination.page <= 1"
+            (click)="changeHistoryPage(-1)"
+          >
+            Anterior
+          </button>
+          <button
+            class="min-h-9 rounded-lg border border-surface-300 px-3 disabled:opacity-50 dark:border-surface-600"
+            type="button"
+            [disabled]="historyData.pagination.page >= historyData.pagination.totalPages"
+            (click)="changeHistoryPage(1)"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
+    }
+  </section>
+</main>

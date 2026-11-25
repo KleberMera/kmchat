@@ -32,6 +32,13 @@ export const routes: Routes = [
             (module) => module.Sesiones,
           ),
       },
+      {
+        path: 'masiva',
+        loadComponent: () =>
+          import('./features/masiva/pages/masiva/masiva').then(
+            (module) => module.Masiva,
+          ),
+      },
     ],
   },
   {

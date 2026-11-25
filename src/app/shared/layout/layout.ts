@@ -6,6 +6,7 @@ import { ButtonModule } from 'primeng/button';
 import { SidebarModule } from 'primeng/sidebar';
 import { Comment } from '@primeicons/angular/comment';
 import { Home } from '@primeicons/angular/home';
+import { Megaphone } from '@primeicons/angular/megaphone';
 import { Sidebar as SidebarIcon } from '@primeicons/angular/sidebar';
 
 type NavigationMenuItem = {
@@ -33,6 +34,7 @@ export class Layout implements OnInit, OnDestroy {
   readonly menuItems: NavigationMenuItem[] = [
     { label: 'Resumen', path: '/dashboard', icon: Home },
     { label: 'Sesiones', path: '/sesiones', icon: Comment },
+    { label: 'Envío masivo', path: '/masiva', icon: Megaphone },
   ];
   readonly activeItem = signal(this.menuItems[0]);
   readonly isMobile = signal(false);
