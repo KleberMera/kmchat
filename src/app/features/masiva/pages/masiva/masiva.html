@@ -77,7 +77,9 @@
         <p class="m-0 text-sm text-color-secondary">
           Sube un archivo .xlsx o .xls. La primera hoja debe tener una fila de encabezados e incluir
           la columna <code>phone</code>. Las demás columnas se enviarán como campos dinámicos.
-          Guarda los teléfonos como texto en Excel para conservar ceros iniciales.
+          Los números ecuatorianos que empiecen por 0 se convertirán automáticamente a formato 593,
+          por ejemplo <code>09XXXXXXXX</code> a <code>5939XXXXXXXX</code>. Si ya tienen 593, no se
+          vuelve a agregar.
         </p>
         <div class="flex flex-wrap items-center gap-3">
           <label

@@ -230,7 +230,11 @@ export class Masiva {
               trimmedHeader.toLowerCase() === 'phone'
                 ? 'phone'
                 : trimmedHeader;
-            recipient[field] = this.toCellString(value);
+            const cellValue = this.toCellString(value);
+            recipient[field] =
+              field === 'phone'
+                ? this.normalizeEcuadorianPhone(cellValue)
+                : cellValue;
           }
 
           return recipient;
@@ -435,6 +439,15 @@ export class Masiva {
       return value.toISOString();
     }
     return String(value).trim();
+  }
+
+  private normalizeEcuadorianPhone(phone: string): string {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('593')) {
+      return digits;
+    }
+
+    return digits.startsWith('0') ? `593${digits.slice(1)}` : digits;
   }
 
   private async showError(message: string): Promise<void> {
