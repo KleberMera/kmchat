@@ -56,6 +56,7 @@ export interface BulkMessageLog {
   batchId: string;
   phoneNumber: string;
   sessionId: string;
+  sessionName?: string | null;
   sessionPhoneNumber: string | null;
   status: string;
   errorMessage: string | null;

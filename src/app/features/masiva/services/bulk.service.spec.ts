@@ -42,6 +42,7 @@ describe('BulkService', () => {
             batchId: 'batch-id',
             phoneNumber: '593961137973',
             sessionId: 'session-id',
+            sessionName: 'Atención principal',
             sessionPhoneNumber: null,
             status: 'SENT',
             errorMessage: null,

@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
@@ -17,9 +18,51 @@ import type {
   BulkBatchStatus,
   BulkMessageLog,
 } from '../../models/bulk.model';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
+import { InputTextModule } from 'primeng/inputtext';
+import { SelectModule } from 'primeng/select';
+import { TableModule, type Table } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import type { TagSeverity } from 'primeng/types/tag';
+import { Search } from '@primeicons/angular/search';
+import { ButtonModule } from 'primeng/button';
+import { MessageModule } from 'primeng/message';
+import { SkeletonModule } from 'primeng/skeleton';
+import { ProgressBarModule } from 'primeng/progressbar';
+
+import { ArrowLeft } from '@primeicons/angular/arrow-left';
+import { FileExcel } from '@primeicons/angular/file-excel';
+import { InfoCircle } from '@primeicons/angular/info-circle';
+import { ExclamationCircle } from '@primeicons/angular/exclamation-circle';
+import { Inbox } from '@primeicons/angular/inbox';
+
+// agrega a imports: [ButtonModule, MessageModule, SkeletonModule, ProgressBarModule,
+//   ArrowLeft, FileExcel, InfoCircle, ExclamationCircle, Inbox, ...los que ya tienes]
+type BulkMessageLogTableRow = BulkMessageLog & {
+  phoneSearch: string;
+  sessionPhoneSearch: string;
+};
 
 @Component({
-  imports: [RouterLink],
+  imports: [
+    RouterLink,
+    FormsModule,
+    IconFieldModule,
+    InputIconModule,
+    InputTextModule,
+    SelectModule,
+    TableModule,
+    TagModule,
+    Search,
+    ButtonModule,
+    MessageModule,
+    SkeletonModule,
+    ProgressBarModule,
+    ArrowLeft,
+    FileExcel,
+    Inbox,
+  ],
   selector: 'app-lote',
   templateUrl: './lote.html',
 })
@@ -33,9 +76,6 @@ export class Lote {
   readonly batchId = computed(() => this.routeParams().get('batchId'));
   readonly statusResource = this.bulkService.getStatus(this.batchId);
   readonly detailResource = this.bulkService.getBatch(this.batchId);
-  readonly logStatusFilter = signal<string | null>(null);
-  readonly logsPage = signal(1);
-  readonly logsPageSize = 50;
   readonly logsResource = this.bulkService.getLogs(this.batchId);
   readonly batchStatus = computed<BulkBatchStatus | null>(() =>
     this.statusResource.hasValue() ? this.statusResource.value().data : null,
@@ -46,19 +86,39 @@ export class Lote {
   readonly allLogs = computed<BulkMessageLog[]>(() =>
     this.logsResource.hasValue() ? this.logsResource.value().data.items : [],
   );
-  readonly filteredLogs = computed(() => {
-    const status = this.logStatusFilter();
-    return status ? this.allLogs().filter((log) => log.status === status) : this.allLogs();
-  });
-  readonly logs = computed(() => {
-    const start = (this.logsPage() - 1) * this.logsPageSize;
-    return this.filteredLogs().slice(start, start + this.logsPageSize);
-  });
-  readonly logsPagination = computed(() => ({
-    page: this.logsPage(),
-    total: this.filteredLogs().length,
-    totalPages: Math.max(1, Math.ceil(this.filteredLogs().length / this.logsPageSize)),
-  }));
+  readonly tableLogs = computed<BulkMessageLogTableRow[]>(() =>
+    this.allLogs().map((log) => ({
+      ...log,
+      phoneSearch: [
+        log.phoneNumber,
+        formatEcuadorianPhone(log.phoneNumber),
+        formatEcuadorianPhoneForExport(log.phoneNumber),
+      ].join(' '),
+      sessionPhoneSearch: [
+        log.sessionPhoneNumber ?? '',
+        formatEcuadorianPhone(log.sessionPhoneNumber),
+        formatEcuadorianPhoneForExport(log.sessionPhoneNumber),
+      ].join(' '),
+    })),
+  );
+  readonly logGlobalFilterFields = [
+    'phoneSearch',
+    'sessionName',
+    'sessionId',
+    'sessionPhoneSearch',
+    'status',
+    'errorMessage',
+    'sentAt',
+  ];
+  readonly logStatusOptions = [
+    { label: 'Enviados', value: 'SENT' },
+    { label: 'Fallidos', value: 'FAILED' },
+    { label: 'Inválidos', value: 'INVALID' },
+    { label: 'Pendientes', value: 'PENDING' },
+    { label: 'En proceso', value: 'PROCESSING' },
+    { label: 'Completados', value: 'COMPLETED' },
+    { label: 'Cancelados', value: 'CANCELLED' },
+  ];
   readonly isExporting = signal(false);
   readonly exportError = signal<string | null>(null);
   readonly exportEnabled = computed(
@@ -97,6 +157,9 @@ export class Lote {
       if (!this.statusResource.isLoading()) {
         this.statusResource.reload();
       }
+      if (!this.logsResource.isLoading()) {
+        this.logsResource.reload();
+      }
     }, 3000);
     onCleanup(() => clearInterval(intervalId));
   });
@@ -108,25 +171,38 @@ export class Lote {
     }
   });
 
-  changeLogsPage(delta: number): void {
-    const pagination = this.logsPagination();
-    if (!pagination) {
+  filterLogs(table: Table<BulkMessageLogTableRow>, event: Event): void {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) {
       return;
     }
 
-    this.logsPage.update((current) =>
-      Math.min(pagination.totalPages, Math.max(1, current + delta)),
-    );
+    table.filterGlobal(input.value, 'contains');
   }
 
-  changeLogStatus(event: Event): void {
-    const select = event.target;
-    if (!(select instanceof HTMLSelectElement)) {
+  filterColumn(event: Event, callback: (value: string) => void): void {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) {
       return;
     }
 
-    this.logStatusFilter.set(select.value || null);
-    this.logsPage.set(1);
+    callback(input.value);
+  }
+
+  getLogSeverity(status: string): TagSeverity {
+    switch (status) {
+      case 'COMPLETED':
+      case 'SENT':
+        return 'success';
+      case 'FAILED':
+        return 'danger';
+      case 'INVALID':
+        return 'warn';
+      case 'PROCESSING':
+        return 'info';
+      default:
+        return 'secondary';
+    }
   }
 
   async exportBatchExcel(): Promise<void> {
@@ -173,6 +249,7 @@ export class Lote {
           'ID del lote': log.batchId,
           Teléfono: formatEcuadorianPhoneForExport(log.phoneNumber),
           'ID de sesión': log.sessionId,
+          'Nombre de sesión': log.sessionName ?? '',
           'Teléfono de sesión': formatEcuadorianPhoneForExport(log.sessionPhoneNumber),
           Estado: this.getBulkStatusLabel(log.status),
           'Estado (API)': log.status,
