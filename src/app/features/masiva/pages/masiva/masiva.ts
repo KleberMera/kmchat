@@ -247,11 +247,6 @@ export class Masiva {
       this.videoError.set('El archivo de video está vacío.');
       return;
     }
-    if (video.size > 16 * 1024 * 1024) {
-      this.selectedVideo.set(null);
-      this.videoError.set('El video no puede superar los 16 MB.');
-      return;
-    }
     this.selectedVideo.set(video);
   }
 

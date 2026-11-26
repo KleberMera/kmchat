@@ -188,6 +188,21 @@ describe('Masiva', () => {
     expect(minutesToMilliseconds(3)).toBe(180000);
   });
 
+  it('accepts a video larger than 16 MB', () => {
+    const video = new File(
+      [new Uint8Array(16 * 1024 * 1024 + 1)],
+      'large-video.mp4',
+      { type: 'video/mp4' },
+    );
+    const input = document.createElement('input');
+    Object.defineProperty(input, 'files', { value: [video] });
+
+    component.selectVideo({ target: input } as unknown as Event);
+
+    expect(component.selectedVideo()).toBe(video);
+    expect(component.videoError()).toBeNull();
+  });
+
   it('starts with pacing values displayed as minutes', () => {
     expect(component.campaignModel()).toMatchObject({
       delayBetweenMessagesMinutes: 1,

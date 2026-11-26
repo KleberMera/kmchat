@@ -10,10 +10,21 @@ import type { BulkStartRequest } from '../models/bulk.model';
 import { BulkService } from './bulk.service';
 
 describe('BulkService', () => {
+  const userId = 'c0a80101-0000-4000-8000-000000000001';
   let service: BulkService;
   let httpTestingController: HttpTestingController;
 
   beforeEach(() => {
+    localStorage.setItem(
+      'kmchat.authenticated-user',
+      JSON.stringify({
+        id: userId,
+        firstName: 'Test',
+        lastName: 'User',
+        username: 'test-user',
+        status: 'A',
+      }),
+    );
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
@@ -23,6 +34,7 @@ describe('BulkService', () => {
 
   afterEach(() => {
     httpTestingController.verify();
+    localStorage.removeItem('kmchat.authenticated-user');
   });
 
   it('loads all logs without server-side pagination query parameters', () => {
@@ -31,7 +43,7 @@ describe('BulkService', () => {
     TestBed.flushEffects();
 
     const request = httpTestingController.expectOne(
-      `${environment.apiUrl}/bulk/batch-id/logs`,
+      `${environment.apiUrl}/bulk/batch-id/logs?userId=${userId}`,
     );
     expect(request.request.method).toBe('GET');
     request.flush({
@@ -74,7 +86,7 @@ describe('BulkService', () => {
     service.start(requestBody).subscribe();
 
     const request = httpTestingController.expectOne(
-      `${environment.apiUrl}/bulk/start`,
+      `${environment.apiUrl}/bulk/start?userId=${userId}`,
     );
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual(requestBody);
@@ -108,7 +120,7 @@ describe('BulkService', () => {
     service.start(requestBody, video).subscribe();
 
     const request = httpTestingController.expectOne(
-      `${environment.apiUrl}/bulk/start`,
+      `${environment.apiUrl}/bulk/start?userId=${userId}`,
     );
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toBeInstanceOf(FormData);
@@ -129,21 +141,21 @@ describe('BulkService', () => {
   it('calls the lote actions on their matching API routes', () => {
     service.pause('batch-id').subscribe();
     const pauseRequest = httpTestingController.expectOne(
-      `${environment.apiUrl}/bulk/batch-id/pause`,
+      `${environment.apiUrl}/bulk/batch-id/pause?userId=${userId}`,
     );
     expect(pauseRequest.request.method).toBe('POST');
     pauseRequest.flush({ data: { batchId: 'batch-id', status: 'PAUSED' } });
 
     service.restart('batch-id').subscribe();
     const restartRequest = httpTestingController.expectOne(
-      `${environment.apiUrl}/bulk/batch-id/restart`,
+      `${environment.apiUrl}/bulk/batch-id/restart?userId=${userId}`,
     );
     expect(restartRequest.request.method).toBe('POST');
     restartRequest.flush({ data: { batchId: 'batch-id', status: 'PENDING' } });
 
     service.remove('batch-id').subscribe();
     const removeRequest = httpTestingController.expectOne(
-      `${environment.apiUrl}/bulk/batch-id`,
+      `${environment.apiUrl}/bulk/batch-id?userId=${userId}`,
     );
     expect(removeRequest.request.method).toBe('DELETE');
     removeRequest.flush({ data: { batchId: 'batch-id', deleted: true } });
