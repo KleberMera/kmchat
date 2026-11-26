@@ -11,6 +11,7 @@ export interface BulkStartRequest {
   batchSize: number;
   longPauseMs: number;
   verifyDelayMs: number;
+  verifyNumbers?: boolean;
 }
 
 export interface BulkStartResponse {
@@ -44,6 +45,15 @@ export type BulkBatchStatus = BulkBatchSummary;
 
 export interface BulkBatchDetail extends BulkBatchSummary {
   config: BulkStartRequest;
+  hasVideo?: boolean;
+  videoFileName?: string | null;
+}
+
+export interface BulkActionResponse {
+  batchId: string;
+  status?: string;
+  message?: string;
+  deleted?: boolean;
 }
 
 export interface BulkHistoryData {

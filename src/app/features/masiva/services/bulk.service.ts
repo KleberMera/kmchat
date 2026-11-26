@@ -10,6 +10,7 @@ import type { ApiResponse } from '../../../shared/models/api-response';
 import type {
   BulkBatchDetail,
   BulkBatchStatus,
+  BulkActionResponse,
   BulkHistoryData,
   BulkLogsData,
   BulkStartRequest,
@@ -63,10 +64,43 @@ export class BulkService {
     });
   }
 
-  start(request: BulkStartRequest): Observable<ApiResponse<BulkStartResponse>> {
+  start(
+    request: BulkStartRequest,
+    video?: File | null,
+  ): Observable<ApiResponse<BulkStartResponse>> {
+    if (video) {
+      const body = new FormData();
+      body.append('config', JSON.stringify(request));
+      body.append('video', video, video.name);
+      return this.http.post<ApiResponse<BulkStartResponse>>(
+        `${this.apiUrl}/start`,
+        body,
+      );
+    }
+
     return this.http.post<ApiResponse<BulkStartResponse>>(
       `${this.apiUrl}/start`,
       request,
+    );
+  }
+
+  pause(batchId: string): Observable<ApiResponse<BulkActionResponse>> {
+    return this.http.post<ApiResponse<BulkActionResponse>>(
+      `${this.apiUrl}/${encodeURIComponent(batchId)}/pause`,
+      {},
+    );
+  }
+
+  restart(batchId: string): Observable<ApiResponse<BulkActionResponse>> {
+    return this.http.post<ApiResponse<BulkActionResponse>>(
+      `${this.apiUrl}/${encodeURIComponent(batchId)}/restart`,
+      {},
+    );
+  }
+
+  remove(batchId: string): Observable<ApiResponse<BulkActionResponse>> {
+    return this.http.delete<ApiResponse<BulkActionResponse>>(
+      `${this.apiUrl}/${encodeURIComponent(batchId)}`,
     );
   }
 }

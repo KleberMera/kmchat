@@ -104,6 +104,8 @@ export class Masiva {
   readonly recipientFileName = signal<string | null>(null);
   readonly recipientFileError = signal<string | null>(null);
   readonly isReadingFile = signal(false);
+  readonly selectedVideo = signal<File | null>(null);
+  readonly videoError = signal<string | null>(null);
   readonly recipientHeaders = computed(() =>
     this.recipients().length ? Object.keys(this.recipients()[0]) : [],
   );
@@ -126,6 +128,7 @@ export class Masiva {
     batchSize: 50,
     longPauseMinutes: 3,
     verifyDelayMinutes: 1,
+    verifyNumbers: true,
   });
   readonly campaignForm = form(this.campaignModel, (path) => {
     required(path.message, { message: 'El mensaje es obligatorio.' });
@@ -226,6 +229,46 @@ export class Masiva {
     this.recipientFileError.set(null);
   }
 
+  selectVideo(event: Event): void {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) return;
+
+    const video = input.files?.[0] ?? null;
+    input.value = '';
+    this.videoError.set(null);
+    if (!video) return;
+    if (!video.type.startsWith('video/')) {
+      this.selectedVideo.set(null);
+      this.videoError.set('Selecciona un archivo de video.');
+      return;
+    }
+    if (video.size === 0) {
+      this.selectedVideo.set(null);
+      this.videoError.set('El archivo de video está vacío.');
+      return;
+    }
+    if (video.size > 16 * 1024 * 1024) {
+      this.selectedVideo.set(null);
+      this.videoError.set('El video no puede superar los 16 MB.');
+      return;
+    }
+    this.selectedVideo.set(video);
+  }
+
+  clearVideo(): void {
+    this.selectedVideo.set(null);
+    this.videoError.set(null);
+  }
+
+  toggleNumberVerification(event: Event): void {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) return;
+    this.campaignModel.update((model) => ({
+      ...model,
+      verifyNumbers: input.checked,
+    }));
+  }
+
   insertVariable(variable: string, textarea: HTMLTextAreaElement): void {
     const token = `{${variable}}`;
     this.replaceMessageSelection(textarea, token, token.length);
@@ -305,6 +348,8 @@ export class Masiva {
         `Mensajes por lote: ${model.batchSize}`,
         `Pausa larga: ${model.longPauseMinutes} min`,
         `Pausa entre verificaciones: ${model.verifyDelayMinutes} min`,
+        `Verificar números: ${model.verifyNumbers ? 'Sí' : 'No'}`,
+        `Video adjunto: ${this.selectedVideo()?.name ?? 'No'}`,
       ].join('\n');
 
       const messageLabel = document.createElement('p');
@@ -338,13 +383,16 @@ export class Masiva {
         batchSize: model.batchSize,
         longPauseMs: minutesToMilliseconds(model.longPauseMinutes),
         verifyDelayMs: minutesToMilliseconds(model.verifyDelayMinutes),
+        verifyNumbers: model.verifyNumbers,
         sessionIds,
         recipients,
       };
 
       let response: ApiResponse<BulkStartResponse>;
       try {
-        response = await firstValueFrom(this.bulkService.start(request));
+        response = await firstValueFrom(
+          this.bulkService.start(request, this.selectedVideo()),
+        );
       } catch (error: unknown) {
         this.isStarting.set(false);
         await this.showError(getBulkErrorMessage(error, 'No se pudo iniciar el envío masivo.'));

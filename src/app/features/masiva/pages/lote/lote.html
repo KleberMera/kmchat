@@ -12,17 +12,58 @@
         {{ batchId() }}
       </p>
     </div>
-    <a
-      pButton
-      variant="outlined"
-      severity="secondary"
-      routerLink="/lotes"
-      class="w-full justify-center sm:w-auto"
-    >
-      <svg data-p-icon="arrow-left"></svg>
-      Volver al historial
-    </a>
+    <div class="flex flex-wrap gap-2">
+      @if (canPause()) {
+        <button
+          pButton
+          type="button"
+          severity="warn"
+          variant="outlined"
+          [loading]="isOperating()"
+          [disabled]="isOperating()"
+          (click)="pauseBatch()"
+        >
+          Pausar lote
+        </button>
+      }
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        variant="outlined"
+        [loading]="isOperating()"
+        [disabled]="isOperating()"
+        (click)="restartBatch()"
+      >
+        Reiniciar lote
+      </button>
+      <button
+        pButton
+        type="button"
+        severity="danger"
+        variant="outlined"
+        [loading]="isOperating()"
+        [disabled]="isOperating()"
+        (click)="deleteBatch()"
+      >
+        Eliminar lote
+      </button>
+      <a
+        pButton
+        variant="outlined"
+        severity="secondary"
+        routerLink="/lotes"
+        class="w-full justify-center sm:w-auto"
+      >
+        <svg data-p-icon="arrow-left"></svg>
+        Volver al historial
+      </a>
+    </div>
   </header>
+
+  @if (actionError(); as error) {
+    <p-message severity="error" role="alert">{{ error }}</p-message>
+  }
 
   <!-- PROGRESO -->
   <section
@@ -121,6 +162,18 @@
             <p class="m-0 mb-1.5 text-xs text-muted-color">Mensaje</p>
             <pre class="m-0 max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-surface-0 p-3 font-sans dark:bg-surface-900">{{ detail.config.message }}</pre>
           </div>
+          <div class="grid gap-1">
+            <p class="m-0 text-xs text-muted-color">Verificación de números</p>
+            <p class="m-0 font-medium">
+              {{ detail.config.verifyNumbers === false ? 'Desactivada' : 'Activada' }}
+            </p>
+          </div>
+          @if (detail.hasVideo) {
+            <div class="grid gap-1">
+              <p class="m-0 text-xs text-muted-color">Video adjunto</p>
+              <p class="m-0 font-medium">{{ detail.videoFileName || 'Video adjunto' }}</p>
+            </div>
+          }
         </div>
       </details>
     }

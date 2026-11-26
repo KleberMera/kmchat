@@ -415,6 +415,54 @@
         </aside>
       </div>
 
+      <section
+        class="grid gap-3 rounded-xl border border-surface-200 p-5 dark:border-surface-700"
+        aria-labelledby="bulk-video-title"
+      >
+        <div>
+          <h3 id="bulk-video-title" class="m-0 text-sm font-semibold">Video opcional</h3>
+          <p class="mb-0 mt-1 text-sm text-muted-color">
+            Adjunta un video de hasta 16 MB. El mensaje se enviará como texto del video.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <input
+            #videoInput
+            class="sr-only"
+            type="file"
+            accept="video/*"
+            (change)="selectVideo($event)"
+          />
+          <button
+            pButton
+            type="button"
+            severity="secondary"
+            variant="outlined"
+            (click)="videoInput.click()"
+          >
+            <svg data-p-icon="upload"></svg>
+            Seleccionar video
+          </button>
+          @if (selectedVideo(); as video) {
+            <span class="text-sm text-muted-color">{{ video.name }}</span>
+            <button
+              pButton
+              type="button"
+              severity="danger"
+              variant="text"
+              size="small"
+              (click)="clearVideo()"
+            >
+              <svg data-p-icon="times"></svg>
+              Quitar video
+            </button>
+          }
+        </div>
+        @if (videoError(); as error) {
+          <p-message severity="error" role="alert">{{ error }}</p-message>
+        }
+      </section>
+
       <!-- 4. RITMO DE ENVÍO -->
       <fieldset class="grid gap-4 rounded-xl border border-surface-200 p-5 dark:border-surface-700">
         <legend class="flex items-center gap-3 px-1 text-sm font-semibold">
@@ -424,6 +472,24 @@
           >
           Ritmo de envío
         </legend>
+        <label
+          for="verify-numbers"
+          class="flex cursor-pointer items-start gap-3 rounded-lg bg-surface-50 p-3 text-sm dark:bg-surface-800/50"
+        >
+          <input
+            id="verify-numbers"
+            type="checkbox"
+            class="mt-0.5 size-4 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            [checked]="campaignModel().verifyNumbers"
+            (change)="toggleNumberVerification($event)"
+          />
+          <span>
+            <span class="block font-medium">Verificar números antes de enviar</span>
+            <span class="mt-1 block text-muted-color">
+              Desactívalo para enviar directamente, sin consultar si cada número tiene WhatsApp.
+            </span>
+          </span>
+        </label>
         <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <div class="grid content-start gap-1.5">
             <label for="delay-between" class="text-sm font-medium">Pausa entre mensajes</label>

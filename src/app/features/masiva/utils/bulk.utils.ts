@@ -13,6 +13,8 @@ export function getBulkStatusLabel(status: string): string {
       return 'Pendiente';
     case 'PROCESSING':
       return 'En proceso';
+    case 'PAUSED':
+      return 'Pausado';
     case 'COMPLETED':
       return 'Completado';
     case 'FAILED':
@@ -44,6 +46,8 @@ export function getBulkStatusClasses(status: string): string {
       return `${baseClasses} bg-red-500/10 text-red-700 dark:text-red-300`;
     case 'INVALID':
       return `${baseClasses} bg-amber-500/10 text-amber-700 dark:text-amber-300`;
+    case 'PAUSED':
+      return `${baseClasses} bg-orange-500/10 text-orange-700 dark:text-orange-300`;
     default:
       return `${baseClasses} bg-surface-200 text-color-secondary dark:bg-surface-700`;
   }

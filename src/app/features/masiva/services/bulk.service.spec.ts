@@ -68,6 +68,7 @@ describe('BulkService', () => {
       batchSize: 50,
       longPauseMs: 30000,
       verifyDelayMs: 1000,
+      verifyNumbers: false,
     };
 
     service.start(requestBody).subscribe();
@@ -87,5 +88,64 @@ describe('BulkService', () => {
       message: 'OK',
       status: 201,
     });
+  });
+
+  it('uploads a selected video as multipart data with the batch config', () => {
+    const requestBody: BulkStartRequest = {
+      sessionIds: ['session-id'],
+      recipients: [{ phone: '593999000001' }],
+      message: 'Hola',
+      delayBetweenMessagesMs: 0,
+      batchSize: 1,
+      longPauseMs: 0,
+      verifyDelayMs: 0,
+      verifyNumbers: true,
+    };
+    const video = new File(['video-content'], 'promo.mp4', {
+      type: 'video/mp4',
+    });
+
+    service.start(requestBody, video).subscribe();
+
+    const request = httpTestingController.expectOne(
+      `${environment.apiUrl}/bulk/start`,
+    );
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toBeInstanceOf(FormData);
+    const formData = request.request.body as FormData;
+    expect(formData.get('config')).toBe(JSON.stringify(requestBody));
+    expect(formData.get('video')).toBe(video);
+    request.flush({
+      data: {
+        batchId: 'batch-id',
+        total: 1,
+        status: 'PENDING',
+      },
+      message: 'OK',
+      status: 201,
+    });
+  });
+
+  it('calls the lote actions on their matching API routes', () => {
+    service.pause('batch-id').subscribe();
+    const pauseRequest = httpTestingController.expectOne(
+      `${environment.apiUrl}/bulk/batch-id/pause`,
+    );
+    expect(pauseRequest.request.method).toBe('POST');
+    pauseRequest.flush({ data: { batchId: 'batch-id', status: 'PAUSED' } });
+
+    service.restart('batch-id').subscribe();
+    const restartRequest = httpTestingController.expectOne(
+      `${environment.apiUrl}/bulk/batch-id/restart`,
+    );
+    expect(restartRequest.request.method).toBe('POST');
+    restartRequest.flush({ data: { batchId: 'batch-id', status: 'PENDING' } });
+
+    service.remove('batch-id').subscribe();
+    const removeRequest = httpTestingController.expectOne(
+      `${environment.apiUrl}/bulk/batch-id`,
+    );
+    expect(removeRequest.request.method).toBe('DELETE');
+    removeRequest.flush({ data: { batchId: 'batch-id', deleted: true } });
   });
 });

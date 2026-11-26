@@ -1,7 +1,9 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import Swal from 'sweetalert2';
 import {
   formatEcuadorianPhone,
   formatEcuadorianPhoneForExport,
@@ -72,6 +74,8 @@ export class Lote {
   private readonly routeParams = toSignal(this.route.paramMap, {
     initialValue: this.route.snapshot.paramMap,
   });
+  private readonly router = inject(Router);
+  private readonly swal = Swal.mixin({ theme: 'dark' });
 
   readonly batchId = computed(() => this.routeParams().get('batchId'));
   readonly statusResource = this.bulkService.getStatus(this.batchId);
@@ -120,6 +124,8 @@ export class Lote {
     { label: 'Cancelados', value: 'CANCELLED' },
   ];
   readonly isExporting = signal(false);
+  readonly isOperating = signal(false);
+  readonly actionError = signal<string | null>(null);
   readonly exportError = signal<string | null>(null);
   readonly exportEnabled = computed(
     () => this.logsResource.hasValue() && !this.isExporting(),
@@ -147,6 +153,9 @@ export class Lote {
   readonly getBulkStatusLabel = getBulkStatusLabel;
   readonly formatDate = formatBulkDate;
   readonly formatPhone = formatEcuadorianPhone;
+  readonly canPause = computed(() =>
+    ['PENDING', 'PROCESSING'].includes(this.batchStatus()?.status ?? ''),
+  );
 
   private readonly pollingEffect = effect((onCleanup) => {
     if (!this.batchId() || !this.isPolling()) {
@@ -176,8 +185,92 @@ export class Lote {
     if (!(input instanceof HTMLInputElement)) {
       return;
     }
-
     table.filterGlobal(input.value, 'contains');
+  }
+
+  async pauseBatch(): Promise<void> {
+    const batchId = this.batchId();
+    if (!batchId) return;
+    await this.performAction(
+      '¿Pausar este lote?',
+      'El envío se detendrá después del mensaje que esté procesándose.',
+      () => this.bulkService.pause(batchId),
+    );
+  }
+
+  async restartBatch(): Promise<void> {
+    const batchId = this.batchId();
+    if (!batchId) return;
+    await this.performAction(
+      '¿Reiniciar este lote?',
+      'Se borrarán los registros actuales y el envío comenzará desde el primer contacto.',
+      () => this.bulkService.restart(batchId),
+    );
+  }
+
+  async deleteBatch(): Promise<void> {
+    const confirmed = await this.swal.fire({
+      icon: 'warning',
+      title: '¿Eliminar este lote?',
+      text: 'Se eliminarán el lote y todos sus registros. Esta acción no se puede deshacer.',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+      reverseButtons: true,
+      focusCancel: true,
+    });
+    const batchId = this.batchId();
+    if (!confirmed.isConfirmed || !batchId) return;
+
+    this.isOperating.set(true);
+    this.actionError.set(null);
+    try {
+      await firstValueFrom(this.bulkService.remove(batchId));
+      await this.router.navigate(['/lotes']);
+    } catch (error: unknown) {
+      this.actionError.set(
+        getBulkErrorMessage(error, 'No se pudo eliminar el lote.'),
+      );
+    } finally {
+      this.isOperating.set(false);
+    }
+  }
+
+  private async performAction(
+    title: string,
+    text: string,
+    action: () => ReturnType<BulkService['pause']>,
+  ): Promise<void> {
+    if (this.isOperating()) return;
+    const confirmed = await this.swal.fire({
+      icon: 'question',
+      title,
+      text,
+      showCancelButton: true,
+      confirmButtonText: 'Confirmar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true,
+      focusCancel: true,
+    });
+    if (!confirmed.isConfirmed) return;
+
+    this.isOperating.set(true);
+    this.actionError.set(null);
+    try {
+      await firstValueFrom(action());
+      await Promise.all([
+        this.statusResource.reload(),
+        this.detailResource.reload(),
+        this.logsResource.reload(),
+      ]);
+    } catch (error: unknown) {
+      this.actionError.set(
+        getBulkErrorMessage(error, 'No se pudo actualizar el lote.'),
+      );
+    } finally {
+      this.isOperating.set(false);
+    }
   }
 
   filterColumn(event: Event, callback: (value: string) => void): void {
@@ -241,6 +334,11 @@ export class Lote {
         ['Tamaño del lote', config?.batchSize ?? ''],
         ['Pausa larga (ms)', config?.longPauseMs ?? ''],
         ['Pausa entre verificaciones (ms)', config?.verifyDelayMs ?? ''],
+        [
+          'Verificación de números',
+          config?.verifyNumbers === false ? 'Desactivada' : 'Activada',
+        ],
+        ['Video adjunto', detail?.videoFileName ?? 'No'],
         ['Creado', detail ? this.formatDate(detail.createdAt) : ''],
       ]);
       const logsSheet = XLSX.utils.json_to_sheet(
@@ -271,6 +369,6 @@ export class Lote {
   }
 
   private isTerminalStatus(status: string): boolean {
-    return status === 'COMPLETED' || status === 'FAILED';
+    return status === 'COMPLETED' || status === 'FAILED' || status === 'PAUSED';
   }
 }
